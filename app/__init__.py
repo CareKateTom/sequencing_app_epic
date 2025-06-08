@@ -1,28 +1,17 @@
 """
 Flask application factory for Epic FHIR Integration.
 
-This module implements the application factory pattern, providing a clean way to
-create and configure Flask applications with different settings for development,
-testing, and production environments.
-
-Features:
-- Environment-based configuration
-- Blueprint registration
-- Extension initialization
-- Error handling setup
-- Logging configuration
-- Security headers
-- Health check endpoints
+Healthcare-focused application factory prioritizing security, compliance, and auditability.
+Follows the principle: "Secure and compliant, not enterprise-ready"
 """
 
 import os
-from typing import Optional, Dict, Any
-from flask import Flask, jsonify, request, g
+from flask import Flask, request, g
 from werkzeug.exceptions import HTTPException
 
-from app.config import load_config, ConfigError
-from app.core.logging import setup_logging, get_logger
-from app.core.exceptions import EpicFHIRError, create_error_response
+from app.config import load_config
+from app.core.logging import setup_logging, get_logger, log_security_event
+from app.core.exceptions import EpicFHIRError
 from app.core.secrets import get_secret_manager
 
 # Import blueprints
@@ -34,419 +23,242 @@ from app.web.routes import create_web_blueprint
 logger = get_logger(__name__)
 
 
-def create_app(config_name: Optional[str] = None) -> Flask:
+def create_app() -> Flask:
     """
-    Application factory function to create and configure Flask app.
+    Create and configure Flask application for Epic FHIR Integration.
     
-    Args:
-        config_name: Configuration environment ('development', 'production', 'testing')
-                    If None, uses FLASK_ENV environment variable
-        
+    Focuses on security, compliance, and audit logging for healthcare environments.
+    
     Returns:
         Configured Flask application instance
-        
-    Raises:
-        ConfigError: If configuration is invalid
     """
-    logger.info("Starting Flask application creation")
+    logger.info("Creating Epic FHIR Integration application")
     
-    try:
-        # Create Flask app
-        app = Flask(__name__)
-        
-        # Load configuration
-        config = load_config()
-        app.config.from_object(config)
-        
-        # Store config object for easy access
-        app.epic_config = config
-        
-        # Setup logging early
-        setup_logging(app)
-        
-        # Initialize extensions
-        init_extensions(app)
-        
-        # Register blueprints
-        register_blueprints(app)
-        
-        # Setup error handlers
-        register_error_handlers(app)
-        
-        # Setup request/response handlers
-        setup_request_handlers(app)
-        
-        # Setup health check endpoints
-        setup_health_endpoints(app)
-        
-        # Setup security headers
-        setup_security_headers(app)
-        
-        # Log successful initialization
-        logger.info(
-            "Flask application created successfully",
-            extra={
-                'environment': config.FLASK_ENV,
-                'debug': config.FLASK_DEBUG,
-                'host': config.HOST,
-                'port': config.PORT
-            }
-        )
-        
-        return app
-        
-    except Exception as e:
-        logger.error(f"Failed to create Flask application: {e}")
-        raise
+    # Create Flask app
+    app = Flask(__name__)
+    
+    # Load configuration
+    config = load_config()
+    app.config.from_object(config)
+    
+    # Setup structured logging early
+    setup_logging(app)
+    
+    # Initialize core services
+    init_secret_manager(app)
+    
+    # Register blueprints
+    register_blueprints(app)
+    
+    # Setup security and compliance handlers
+    setup_security_handlers(app)
+    
+    logger.info(
+        "Epic FHIR Integration application created",
+        extra={
+            'environment': config.FLASK_ENV,
+            'host': config.HOST,
+            'port': config.PORT
+        }
+    )
+    
+    return app
 
 
-def init_extensions(app: Flask) -> None:
-    """
-    Initialize Flask extensions.
-    
-    Args:
-        app: Flask application instance
-    """
-    logger.debug("Initializing Flask extensions")
-    
-    # Initialize Secret Manager
+def init_secret_manager(app: Flask) -> None:
+    """Initialize GCP Secret Manager for credential retrieval."""
     try:
-        secret_manager = get_secret_manager(app.config.get('GCP_PROJECT_ID'))
+        project_id = app.config.get('GCP_PROJECT_ID')
+        if not project_id:
+            raise ValueError("GCP_PROJECT_ID not configured")
+        
+        secret_manager = get_secret_manager(project_id)
         app.secret_manager = secret_manager
-        logger.info("Secret Manager initialized successfully")
+        
+        logger.info("Secret Manager initialized")
+        
     except Exception as e:
         logger.error(f"Failed to initialize Secret Manager: {e}")
-        # Don't fail app creation, but log the error
-    
-    # Additional extensions can be initialized here
-    # Example: database, cache, etc.
+        # Don't fail app creation, but log for monitoring
+        log_security_event(
+            'secret_manager_init_failed',
+            {'error': str(e)},
+            level='ERROR'
+        )
 
 
 def register_blueprints(app: Flask) -> None:
-    """
-    Register application blueprints.
-    
-    Args:
-        app: Flask application instance
-    """
-    logger.debug("Registering application blueprints")
-    
+    """Register application blueprints."""
     try:
-        # Register authentication blueprint
+        # Authentication (OAuth2 with Epic)
         auth_bp = create_auth_blueprint()
         app.register_blueprint(auth_bp)
         
-        # Register FHIR blueprint
+        # FHIR API interactions
         fhir_bp = create_fhir_blueprint()
         app.register_blueprint(fhir_bp, url_prefix='/fhir')
         
-        # Register HL7 blueprint
+        # HL7 bidirectional messaging
         hl7_bp = create_hl7_blueprint()
         app.register_blueprint(hl7_bp, url_prefix='/hl7')
         
-        # Register web interface blueprint
+        # Web interface
         web_bp = create_web_blueprint()
         app.register_blueprint(web_bp)
         
-        logger.info("All blueprints registered successfully")
+        logger.info("All blueprints registered")
         
     except Exception as e:
         logger.error(f"Failed to register blueprints: {e}")
         raise
 
 
-def register_error_handlers(app: Flask) -> None:
-    """
-    Register global error handlers.
+def setup_security_handlers(app: Flask) -> None:
+    """Setup security, error handling, and audit logging."""
     
-    Args:
-        app: Flask application instance
-    """
-    logger.debug("Registering error handlers")
-    
-    @app.errorhandler(EpicFHIRError)
-    def handle_epic_fhir_error(error: EpicFHIRError):
-        """Handle custom Epic FHIR errors."""
-        logger.error(
-            f"Epic FHIR error: {error.message}",
-            extra={
-                'error_code': error.error_code,
-                'context': error.context,
-                'request_path': request.path if request else None
+    @app.before_request
+    def security_before_request():
+        """Security checks and audit logging for each request."""
+        # Generate request ID for audit trail correlation
+        import uuid
+        g.request_id = str(uuid.uuid4())
+        
+        # Log all requests for security monitoring
+        log_security_event(
+            'request_received',
+            {
+                'request_id': g.request_id,
+                'method': request.method,
+                'path': request.path,
+                'remote_addr': request.remote_addr,
+                'user_agent': request.headers.get('User-Agent', 'Unknown')
             }
         )
-        
-        response_data = create_error_response(
-            error, 
-            include_traceback=app.config.get('FLASK_DEBUG', False)
+    
+    @app.errorhandler(EpicFHIRError)
+    def handle_epic_error(error: EpicFHIRError):
+        """Handle Epic FHIR specific errors with security logging."""
+        log_security_event(
+            'application_error',
+            {
+                'error_type': error.__class__.__name__,
+                'error_code': error.error_code,
+                'request_path': request.path,
+                'request_id': getattr(g, 'request_id', 'unknown')
+            },
+            level='ERROR'
         )
         
-        # Determine HTTP status code based on error type
-        status_code = getattr(error, 'status_code', 500)
-        if hasattr(error, 'error_code'):
-            if 'TOKEN_' in error.error_code:
-                status_code = 401
-            elif 'AUTHORIZATION' in error.error_code:
-                status_code = 403
-            elif 'NOT_FOUND' in error.error_code:
-                status_code = 404
-            elif 'VALIDATION' in error.error_code:
-                status_code = 400
+        # Don't expose internal error details in production
+        if app.config.get('FLASK_ENV') == 'development':
+            error_detail = str(error)
+        else:
+            error_detail = "An error occurred processing your request"
         
-        return jsonify(response_data), status_code
+        return {'error': error_detail}, 500
     
     @app.errorhandler(HTTPException)
     def handle_http_error(error: HTTPException):
-        """Handle standard HTTP errors."""
-        logger.warning(
-            f"HTTP error {error.code}: {error.description}",
-            extra={
-                'status_code': error.code,
-                'request_path': request.path if request else None
-            }
-        )
+        """Handle HTTP errors with audit logging."""
+        # Log 4xx errors for security monitoring
+        if error.code >= 400:
+            log_security_event(
+                'http_error',
+                {
+                    'status_code': error.code,
+                    'request_path': request.path,
+                    'request_id': getattr(g, 'request_id', 'unknown')
+                },
+                level='WARNING' if error.code < 500 else 'ERROR'
+            )
         
-        return jsonify({
-            'error': error.name,
-            'message': error.description,
-            'status_code': error.code
-        }), error.code
+        return {'error': error.description}, error.code
     
     @app.errorhandler(Exception)
     def handle_unexpected_error(error: Exception):
-        """Handle unexpected errors."""
-        logger.error(
-            f"Unexpected error: {str(error)}",
-            extra={
+        """Handle unexpected errors with security logging."""
+        log_security_event(
+            'unexpected_error',
+            {
                 'error_type': type(error).__name__,
-                'request_path': request.path if request else None
+                'request_path': request.path,
+                'request_id': getattr(g, 'request_id', 'unknown')
             },
-            exc_info=True
+            level='ERROR'
         )
         
-        if app.config.get('FLASK_DEBUG'):
-            # In debug mode, let Flask handle the error normally
+        logger.error(f"Unexpected error: {error}", exc_info=True)
+        
+        # Never expose internal errors in production
+        if app.config.get('FLASK_ENV') == 'development':
             raise error
         
-        return jsonify({
-            'error': 'InternalServerError',
-            'message': 'An unexpected error occurred',
-            'status_code': 500
-        }), 500
-
-
-def setup_request_handlers(app: Flask) -> None:
-    """
-    Setup request and response handlers.
-    
-    Args:
-        app: Flask application instance
-    """
-    logger.debug("Setting up request handlers")
-    
-    @app.before_request
-    def before_request():
-        """Execute before each request."""
-        # Request ID is handled by logging middleware
-        pass
+        return {'error': 'Internal server error'}, 500
     
     @app.after_request
-    def after_request(response):
-        """Execute after each request."""
-        # Add CORS headers if needed
-        if app.config.get('FLASK_ENV') == 'development':
-            response.headers['Access-Control-Allow-Origin'] = '*'
-            response.headers['Access-Control-Allow-Methods'] = 'GET, POST, PUT, DELETE, OPTIONS'
-            response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization'
+    def security_after_request(response):
+        """Add security headers and log response."""
+        # Add basic security headers
+        response.headers['X-Content-Type-Options'] = 'nosniff'
+        response.headers['X-Frame-Options'] = 'DENY'
+        response.headers['X-Request-ID'] = getattr(g, 'request_id', 'unknown')
         
-        return response
-    
-    @app.teardown_appcontext
-    def teardown_appcontext(error):
-        """Clean up after request context."""
-        # Clean up any request-specific resources
-        if error:
-            logger.error(f"Request teardown error: {error}")
-
-
-def setup_health_endpoints(app: Flask) -> None:
-    """
-    Setup health check and monitoring endpoints.
-    
-    Args:
-        app: Flask application instance
-    """
-    logger.debug("Setting up health check endpoints")
-    
-    @app.route('/health', methods=['GET'])
-    def health_check():
-        """Basic health check endpoint."""
-        return jsonify({
-            'status': 'healthy',
-            'timestamp': '2024-12-05T14:30:22Z',
-            'version': '1.0.0',
-            'environment': app.config.get('FLASK_ENV', 'unknown')
-        })
-    
-    @app.route('/health/detailed', methods=['GET'])
-    def detailed_health_check():
-        """Detailed health check with dependency status."""
-        health_data = {
-            'status': 'healthy',
-            'timestamp': '2024-12-05T14:30:22Z',
-            'version': '1.0.0',
-            'environment': app.config.get('FLASK_ENV', 'unknown'),
-            'checks': {}
-        }
-        
-        overall_healthy = True
-        
-        # Check Secret Manager
-        try:
-            if hasattr(app, 'secret_manager'):
-                sm_healthy = app.secret_manager.health_check()
-                health_data['checks']['secret_manager'] = {
-                    'status': 'healthy' if sm_healthy else 'unhealthy',
-                    'details': 'GCP Secret Manager connectivity'
+        # Log security-relevant responses
+        if response.status_code >= 400:
+            log_security_event(
+                'response_sent',
+                {
+                    'status_code': response.status_code,
+                    'request_path': request.path,
+                    'request_id': getattr(g, 'request_id', 'unknown')
                 }
-                if not sm_healthy:
-                    overall_healthy = False
-            else:
-                health_data['checks']['secret_manager'] = {
-                    'status': 'unavailable',
-                    'details': 'Secret Manager not initialized'
-                }
-        except Exception as e:
-            health_data['checks']['secret_manager'] = {
-                'status': 'error',
-                'details': str(e)
-            }
-            overall_healthy = False
-        
-        # Check configuration
-        try:
-            config_checks = {
-                'epic_base_url': bool(app.config.get('EPIC_BASE_URL')),
-                'gcp_project_id': bool(app.config.get('GCP_PROJECT_ID')),
-                'secret_key': bool(app.config.get('SECRET_KEY'))
-            }
-            
-            config_healthy = all(config_checks.values())
-            health_data['checks']['configuration'] = {
-                'status': 'healthy' if config_healthy else 'unhealthy',
-                'details': config_checks
-            }
-            
-            if not config_healthy:
-                overall_healthy = False
-                
-        except Exception as e:
-            health_data['checks']['configuration'] = {
-                'status': 'error',
-                'details': str(e)
-            }
-            overall_healthy = False
-        
-        # Set overall status
-        health_data['status'] = 'healthy' if overall_healthy else 'unhealthy'
-        
-        status_code = 200 if overall_healthy else 503
-        return jsonify(health_data), status_code
-    
-    @app.route('/metrics', methods=['GET'])
-    def metrics():
-        """Basic metrics endpoint for monitoring."""
-        # This could be expanded to include Prometheus metrics
-        return jsonify({
-            'requests_total': 'counter metric would go here',
-            'request_duration': 'histogram metric would go here',
-            'active_sessions': 'gauge metric would go here'
-        })
-
-
-def setup_security_headers(app: Flask) -> None:
-    """
-    Setup security headers for all responses.
-    
-    Args:
-        app: Flask application instance
-    """
-    logger.debug("Setting up security headers")
-    
-    @app.after_request
-    def add_security_headers(response):
-        """Add security headers to all responses."""
-        # Only add security headers in production
-        if app.config.get('FLASK_ENV') == 'production':
-            response.headers['X-Content-Type-Options'] = 'nosniff'
-            response.headers['X-Frame-Options'] = 'DENY'
-            response.headers['X-XSS-Protection'] = '1; mode=block'
-            response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
-            response.headers['Content-Security-Policy'] = "default-src 'self'"
-        
-        # Always add these headers
-        response.headers['X-Powered-By'] = 'Epic FHIR Integration'
+            )
         
         return response
 
 
-def create_wsgi_app() -> Flask:
-    """
-    Create WSGI application for production deployment.
-    
-    Returns:
-        Configured Flask application
-    """
-    return create_app()
-
-
-# JWKS endpoint (moved from original app.py)
-def setup_jwks_endpoint(app: Flask) -> None:
-    """
-    Setup JWKS endpoint for OAuth2 key distribution.
-    
-    Args:
-        app: Flask application instance
-    """
-    @app.route('/.well-known/jwks.json')
-    def jwks():
-        """JWKS endpoint for OAuth2 public keys."""
-        try:
-            from app.auth.token_manager import load_jwks
-            return jsonify(load_jwks())
-        except Exception as e:
-            logger.error(f"Failed to load JWKS: {e}")
-            return jsonify({'error': 'Failed to load JWKS'}), 500
-
-
-# Development server runner
 def run_development_server(app: Flask) -> None:
-    """
-    Run development server with SSL if certificates are available.
-    
-    Args:
-        app: Flask application instance
-    """
-    ssl_context = app.epic_config.get_ssl_context()
+    """Run development server with SSL if available."""
+    ssl_context = app.config.get_ssl_context() if hasattr(app.config, 'get_ssl_context') else None
     
     if ssl_context:
-        logger.info(f"Starting development server with SSL on {app.epic_config.HOST}:{app.epic_config.PORT}")
+        logger.info(f"Starting development server with SSL on {app.config['HOST']}:{app.config['PORT']}")
         app.run(
-            debug=app.epic_config.FLASK_DEBUG,
-            host=app.epic_config.HOST,
-            port=app.epic_config.PORT,
+            debug=app.config['FLASK_DEBUG'],
+            host=app.config['HOST'],
+            port=app.config['PORT'],
             ssl_context=ssl_context
         )
     else:
         logger.warning("SSL certificates not found, starting without SSL")
         app.run(
-            debug=app.epic_config.FLASK_DEBUG,
-            host=app.epic_config.HOST,
-            port=8080 if app.epic_config.PORT == 443 else app.epic_config.PORT
+            debug=app.config['FLASK_DEBUG'],
+            host=app.config['HOST'],
+            port=8080 if app.config['PORT'] == 443 else app.config['PORT']
         )
 
 
+# JWKS endpoint for OAuth2 (required for Epic integration)
+def setup_jwks_endpoint(app: Flask) -> None:
+    """Setup JWKS endpoint for OAuth2 public key distribution."""
+    @app.route('/.well-known/jwks.json')
+    def jwks():
+        """JWKS endpoint for OAuth2 public keys."""
+        try:
+            from app.auth.token_manager import load_jwks
+            return load_jwks()
+        except Exception as e:
+            logger.error(f"Failed to load JWKS: {e}")
+            log_security_event(
+                'jwks_error',
+                {'error': str(e)},
+                level='ERROR'
+            )
+            return {'error': 'JWKS unavailable'}, 500
+
+
 if __name__ == '__main__':
-    # This allows running the app directly for development
+    # Direct execution for development
     app = create_app()
+    setup_jwks_endpoint(app)
     run_development_server(app)
