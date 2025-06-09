@@ -1,8 +1,8 @@
 """
 Healthcare compliance logging for Epic FHIR Integration.
 
-Focused on security events, audit trails, and incident investigation
-without enterprise monitoring complexity.
+Focused on security events, audit trails, and incident investigation.
+Follows principle: "Secure and compliant, not enterprise-ready"
 """
 
 import os
@@ -222,45 +222,3 @@ def create_audit_log(action: str, resource: str, user_id: Optional[str] = None,
         audit_entry['request_id'] = g.request_id
     
     logger.info(f"Audit: {action} {resource}", extra=audit_entry)
-
-
-# Simple performance logging for critical operations
-import time
-from contextlib import contextmanager
-
-@contextmanager
-def log_performance(operation: str, logger: Optional[logging.Logger] = None):
-    """Context manager for logging operation performance."""
-    if logger is None:
-        logger = logging.getLogger('epic_fhir.performance')
-    
-    start_time = time.time()
-    success = True
-    
-    try:
-        logger.debug(f"Starting: {operation}")
-        yield
-    except Exception as e:
-        success = False
-        duration = (time.time() - start_time) * 1000
-        logger.warning(
-            f"Operation failed: {operation}",
-            extra={
-                'operation': operation,
-                'duration_ms': round(duration, 2),
-                'success': False,
-                'error': str(e)
-            }
-        )
-        raise
-    finally:
-        if success:
-            duration = (time.time() - start_time) * 1000
-            logger.info(
-                f"Operation completed: {operation}",
-                extra={
-                    'operation': operation,
-                    'duration_ms': round(duration, 2),
-                    'success': True
-                }
-            )
