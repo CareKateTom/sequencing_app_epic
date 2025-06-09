@@ -1,0 +1,349 @@
+{% extends "web/base.html" %}
+
+{% block title %}Application Menu - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            
+            <!-- Welcome Header -->
+            <div class="card mb-4">
+                <div class="card-body bg-primary text-white">
+                    <div class="row align-items-center">
+                        <div class="col-md-8">
+                            <h2 class="mb-1">
+                                <i class="fas fa-tachometer-alt me-2"></i>
+                                Welcome to Epic FHIR Integration
+                            </h2>
+                            <p class="mb-0">
+                                You are successfully connected to Epic FHIR services. 
+                                Choose from the available features below.
+                            </p>
+                        </div>
+                        <div class="col-md-4 text-end">
+                            <div class="user-badge">
+                                <i class="fas fa-user-md fa-2x mb-2"></i>
+                                <div>
+                                    <strong>{{ epic_user_id or 'Epic User' }}</strong><br>
+                                    <small>{{ launch_type.replace('_', ' ').title() }}</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Connection Status -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-wifi me-2"></i>
+                        Connection Status
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center mb-2">
+                                <span class="status-indicator status-connected me-2"></span>
+                                <strong>Epic FHIR Server</strong>
+                            </div>
+                            <small class="text-muted">{{ fhir_server }}</small>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center mb-2">
+                                <span class="status-indicator {% if features.bidirectional_hl7 %}status-connected{% else %}status-disconnected{% endif %} me-2"></span>
+                                <strong>HL7 Messaging</strong>
+                            </div>
+                            <small class="text-muted">
+                                {% if features.bidirectional_hl7 %}Available{% else %}Not Available{% endif %}
+                            </small>
+                        </div>
+                        
+                        <div class="col-md-3">
+                            <div class="d-flex align-items-center mb-2">
+                                <span class="status-indicator {% if token_info.expires_in_minutes and token_info.expires_in_minutes > 30 %}status-connected{% elif token_info.expires_in_minutes and token_info.expires_in_minutes > 5 %}status-warning{% else %}status-disconnected{% endif %} me-2"></span>
+                                <strong>Token Status</strong>
+                            </div>
+                            <small class="text-muted">
+                                {% if token_info.expires_in_minutes %}
+                                    Expires in {{ token_info.expires_in_minutes }} minutes
+                                {% else %}
+                                    Active
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Feature Cards -->
+    <div class="row g-4">
+        
+        <!-- Patient Data Access -->
+        <div class="col-lg-6 col-md-6">
+            <div class="card h-100 feature-card {% if not features.fhir_access %}disabled{% endif %}">
+                <div class="card-body text-center">
+                    <div class="feature-icon mb-3">
+                        <i class="fas fa-users fa-3x {% if features.fhir_access %}text-info{% else %}text-muted{% endif %}"></i>
+                    </div>
+                    <h5 class="card-title">Patient Data Access</h5>
+                    <p class="card-text">
+                        Search and retrieve patient information using Epic's FHIR R4 API.
+                        Access demographics, identifiers, and clinical data.
+                    </p>
+                    
+                    <div class="feature-actions">
+                        {% if features.patient_search %}
+                        <a href="{{ url_for('fhir.search_page') }}" class="btn btn-info me-2">
+                            <i class="fas fa-search me-1"></i>
+                            Patient Search
+                        </a>
+                        {% endif %}
+                        
+                        {% if features.fhir_access %}
+                        <a href="{{ url_for('fhir.get_test_patient') }}" class="btn btn-outline-info">
+                            <i class="fas fa-user me-1"></i>
+                            Test Patient
+                        </a>
+                        {% endif %}
+                    </div>
+                    
+                    {% if not features.fhir_access %}
+                    <div class="text-muted mt-2">
+                        <small>FHIR access not available</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- HL7 Bidirectional Messaging -->
+        <div class="col-lg-6 col-md-6">
+            <div class="card h-100 feature-card {% if not features.bidirectional_hl7 %}disabled{% endif %}">
+                <div class="card-body text-center">
+                    <div class="feature-icon mb-3">
+                        <i class="fas fa-exchange-alt fa-3x {% if features.bidirectional_hl7 %}text-success{% else %}text-muted{% endif %}"></i>
+                    </div>
+                    <h5 class="card-title">HL7 Messaging</h5>
+                    <p class="card-text">
+                        Send and receive HL7 messages through Epic's bidirectional coding interface.
+                        Process ADT^A08 messages for clinical analytics.
+                    </p>
+                    
+                    <div class="feature-actions">
+                        {% if features.get_message %}
+                        <a href="{{ url_for('hl7.test_get_message') }}" class="btn btn-success me-2">
+                            <i class="fas fa-download me-1"></i>
+                            Get Message
+                        </a>
+                        {% endif %}
+                        
+                        {% if features.set_message %}
+                        <a href="{{ url_for('hl7.test_set_message') }}" class="btn btn-outline-success">
+                            <i class="fas fa-upload me-1"></i>
+                            Send Message
+                        </a>
+                        {% endif %}
+                    </div>
+                    
+                    {% if not features.bidirectional_hl7 %}
+                    <div class="text-muted mt-2">
+                        <small>HL7 endpoints not available</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- API Testing & Development -->
+        <div class="col-lg-6 col-md-6">
+            <div class="card h-100 feature-card {% if not features.api_testing %}disabled{% endif %}">
+                <div class="card-body text-center">
+                    <div class="feature-icon mb-3">
+                        <i class="fas fa-code fa-3x {% if features.api_testing %}text-warning{% else %}text-muted{% endif %}"></i>
+                    </div>
+                    <h5 class="card-title">API Testing</h5>
+                    <p class="card-text">
+                        Test and explore Epic FHIR API endpoints. Debug authentication,
+                        inspect responses, and validate API access.
+                    </p>
+                    
+                    <div class="feature-actions">
+                        {% if features.api_testing %}
+                        <a href="{{ url_for('fhir.test_api') }}" class="btn btn-warning me-2">
+                            <i class="fas fa-flask me-1"></i>
+                            API Tester
+                        </a>
+                        <a href="{{ url_for('fhir.test_connection') }}" class="btn btn-outline-warning">
+                            <i class="fas fa-plug me-1"></i>
+                            Test Connection
+                        </a>
+                        {% endif %}
+                    </div>
+                    
+                    {% if not features.api_testing %}
+                    <div class="text-muted mt-2">
+                        <small>API testing not available</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- HL7 Parser & Analytics -->
+        <div class="col-lg-6 col-md-6">
+            <div class="card h-100 feature-card">
+                <div class="card-body text-center">
+                    <div class="feature-icon mb-3">
+                        <i class="fas fa-chart-line fa-3x text-danger"></i>
+                    </div>
+                    <h5 class="card-title">HL7 Parser & Analytics</h5>
+                    <p class="card-text">
+                        Parse HL7 messages and extract data for PSI (Patient Safety Indicator)
+                        algorithms and clinical quality analytics.
+                    </p>
+                    
+                    <div class="feature-actions">
+                        <a href="{{ url_for('hl7.test_parser') }}" class="btn btn-danger me-2">
+                            <i class="fas fa-file-medical me-1"></i>
+                            Test Parser
+                        </a>
+                        <a href="{{ url_for('web.help_page') }}#hl7-parser" class="btn btn-outline-danger">
+                            <i class="fas fa-question-circle me-1"></i>
+                            Learn More
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Token Information -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-key me-2"></i>
+                        Session Information
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h6>Authentication</h6>
+                            <dl class="small">
+                                <dt>Epic User ID:</dt>
+                                <dd>{{ epic_user_id or 'Not available' }}</dd>
+                                
+                                <dt>Launch Type:</dt>
+                                <dd>{{ launch_type.replace('_', ' ').title() }}</dd>
+                                
+                                <dt>FHIR Server:</dt>
+                                <dd><small class="text-muted">{{ fhir_server }}</small></dd>
+                            </dl>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <h6>OAuth Scopes</h6>
+                            <div class="scope-list">
+                                {% for scope in token_info.scopes %}
+                                <span class="badge bg-light text-dark me-1 mb-1">{{ scope }}</span>
+                                {% endfor %}
+                                {% if not token_info.scopes %}
+                                <small class="text-muted">No scopes available</small>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <h6>Token Status</h6>
+                            <dl class="small">
+                                {% if token_info.expires_in_minutes %}
+                                <dt>Expires In:</dt>
+                                <dd>
+                                    {{ token_info.expires_in_minutes }} minutes
+                                    {% if token_info.expires_in_minutes < 30 %}
+                                    <span class="badge bg-warning text-dark">Expiring Soon</span>
+                                    {% endif %}
+                                </dd>
+                                {% endif %}
+                                
+                                <dt>Epic Endpoints:</dt>
+                                <dd>
+                                    {% if features.get_message %}
+                                    <span class="badge bg-success">getMessage</span>
+                                    {% endif %}
+                                    {% if features.set_message %}
+                                    <span class="badge bg-success">setMessage</span>
+                                    {% endif %}
+                                    {% if not features.bidirectional_hl7 %}
+                                    <span class="text-muted">None available</span>
+                                    {% endif %}
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .feature-card {
+        border: none;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+    }
+    
+    .feature-card:hover {
+        box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+        transform: translateY(-2px);
+    }
+    
+    .feature-card.disabled {
+        opacity: 0.6;
+    }
+    
+    .feature-card.disabled:hover {
+        transform: none;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .feature-icon {
+        height: 80px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .user-badge {
+        text-align: center;
+    }
+    
+    .scope-list {
+        max-height: 100px;
+        overflow-y: auto;
+    }
+    
+    .status-indicator {
+        width: 10px;
+        height: 10px;
+    }
+    
+    .card-body .btn {
+        margin: 2px;
+    }
+</style>
+{% endblock %}
