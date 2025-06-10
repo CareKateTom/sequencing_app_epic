@@ -1,0 +1,162 @@
+{% extends "web/base.html" %}
+
+{% block title %}HL7 Message Analysis - Epic FHIR Integration{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="fas fa-file-medical me-2"></i>HL7 Message Analysis</h1>
+                <div>
+                    <a href="{{ url_for('web.menu') }}" class="btn btn-outline-secondary me-2">
+                        <i class="fas fa-home me-1"></i>Back to Menu
+                    </a>
+                    <a href="{{ url_for('hl7.test_get_message') }}" class="btn btn-success">
+                        <i class="fas fa-sync me-1"></i>Refresh Message
+                    </a>
+                </div>
+            </div>
+
+            <!-- Simple display of parsed data -->
+            {% if parsed_data %}
+            <div class="row">
+                <!-- Patient Information -->
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0">Patient Information</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if parsed_data.patient %}
+                            <p><strong>Name:</strong> {{ parsed_data.patient.last_name }}, {{ parsed_data.patient.first_name }} {{ parsed_data.patient.middle_name }}</p>
+                            <p><strong>Patient ID:</strong> {{ parsed_data.patient.patient_id }}</p>
+                            <p><strong>Account #:</strong> {{ parsed_data.patient.account_number }}</p>
+                            <p><strong>Date of Birth:</strong> {{ parsed_data.patient.date_of_birth }}</p>
+                            <p><strong>Sex:</strong> {{ parsed_data.patient.sex }}</p>
+                            {% else %}
+                            <p class="text-muted">No patient information found</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Visit Information -->
+                <div class="col-md-6 mb-4">
+                    <div class="card">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0">Visit Information</h5>
+                        </div>
+                        <div class="card-body">
+                            {% if parsed_data.visit %}
+                            <p><strong>Patient Class:</strong> {{ parsed_data.visit.patient_class }}</p>
+                            <p><strong>Location:</strong> {{ parsed_data.visit.patient_location }}</p>
+                            <p><strong>Admission Type:</strong> {{ parsed_data.visit.admission_type }}</p>
+                            <p><strong>Attending:</strong> {{ parsed_data.visit.attending_physician_name }}</p>
+                            <p><strong>Visit #:</strong> {{ parsed_data.visit.visit_number }}</p>
+                            {% else %}
+                            <p class="text-muted">No visit information found</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Diagnoses -->
+            {% if parsed_data.diagnoses %}
+            <div class="card mb-4">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">Diagnoses ({{ parsed_data.diagnoses|length }})</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Description</th>
+                                    <th>Type</th>
+                                    <th>POA</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for dx in parsed_data.diagnoses %}
+                                <tr>
+                                    <td>{{ dx.diagnosis_code }}</td>
+                                    <td>{{ dx.diagnosis_description }}</td>
+                                    <td>{{ dx.diagnosis_type }}</td>
+                                    <td>{{ dx.poa_indicator }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Procedures -->
+            {% if parsed_data.procedures %}
+            <div class="card mb-4">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0">Procedures ({{ parsed_data.procedures|length }})</h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Code</th>
+                                    <th>Description</th>
+                                    <th>Date</th>
+                                    <th>Surgeon</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for proc in parsed_data.procedures %}
+                                <tr>
+                                    <td>{{ proc.procedure_code }}</td>
+                                    <td>{{ proc.procedure_description }}</td>
+                                    <td>{{ proc.procedure_date }}</td>
+                                    <td>{{ proc.surgeon_name }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Raw Message -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Raw HL7 Message</h5>
+                </div>
+                <div class="card-body">
+                    <pre style="white-space: pre-wrap; font-family: monospace; font-size: 0.9rem;">{{ message }}</pre>
+                </div>
+            </div>
+
+            {% else %}
+            <div class="alert alert-warning">
+                <h4>No Message Data</h4>
+                <p>No HL7 message data was found or parsing failed.</p>
+            </div>
+            {% endif %}
+
+            <!-- Action Buttons -->
+            <div class="text-center">
+                <a href="{{ url_for('hl7.test_set_message') }}" class="btn btn-primary me-2">
+                    <i class="fas fa-paper-plane me-1"></i>Send Response Message
+                </a>
+                <a href="{{ url_for('web.menu') }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-home me-1"></i>Back to Menu
+                </a>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
