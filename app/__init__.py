@@ -39,7 +39,7 @@ def create_app() -> Flask:
     
     # Load configuration
     config = load_config()
-    app.config.from_object(config)
+    app.config.from_mapping(vars(config))
     
     # Setup structured logging early
     setup_logging(app)
