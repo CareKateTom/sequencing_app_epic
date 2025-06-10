@@ -26,10 +26,18 @@ class FHIRClient:
     """
     
     def __init__(self, base_url: str, timeout: int = 30):
-        """Initialize FHIR client."""
         self.base_url = base_url.rstrip('/')
         self.timeout = timeout
+        self.session = requests.Session()  # ADD THIS LINE
         logger.info(f"FHIR client initialized for: {self.base_url}")
+
+    def _build_headers(self, token: str) -> Dict[str, str]:
+        """Build HTTP headers for FHIR requests."""
+        return {
+            'Authorization': f'Bearer {token}',
+            'Accept': 'application/json+fhir',
+            'Content-Type': 'application/json+fhir'
+        }
     
     def get_patient(
         self, 
@@ -252,6 +260,23 @@ class FHIRClient:
         
         return str(error_body)
 
+# Add this function after the FHIRClient class:
+def search_patients_by_name(
+    client: FHIRClient,
+    family_name: str,
+    given_name: str,
+    token: str,
+    epic_user_id: Optional[str] = None
+) -> List[Dict[str, Any]]:
+    """Search patients by name."""
+    search_params = {}
+    
+    if family_name:
+        search_params['family'] = family_name
+    if given_name:
+        search_params['given'] = given_name
+    
+    return client.search_patients(search_params, token, epic_user_id)
 
 # Convenience functions for common operations
 def create_fhir_client(base_url: str) -> FHIRClient:
@@ -302,6 +327,7 @@ def extract_patient_identifiers(patient: Dict[str, Any]) -> Dict[str, str]:
     return identifiers
 
 
+# Update the extract_patient_demographics function to include phone/email:
 def extract_patient_demographics(patient: Dict[str, Any]) -> Dict[str, Any]:
     """Extract basic demographic information."""
     demographics = {}
@@ -319,6 +345,24 @@ def extract_patient_demographics(patient: Dict[str, Any]) -> Dict[str, Any]:
     # Basic demographics
     demographics['gender'] = patient.get('gender')
     demographics['birth_date'] = patient.get('birthDate')
+    
+    # Phone numbers
+    demographics['phone_numbers'] = []
+    for telecom in patient.get('telecom', []):
+        if telecom.get('system') == 'phone':
+            demographics['phone_numbers'].append({
+                'value': telecom.get('value'),
+                'use': telecom.get('use')
+            })
+    
+    # Email addresses
+    demographics['email_addresses'] = []
+    for telecom in patient.get('telecom', []):
+        if telecom.get('system') == 'email':
+            demographics['email_addresses'].append({
+                'value': telecom.get('value'),
+                'use': telecom.get('use')
+            })
     
     # Address (first address only)
     addresses = patient.get('address', [])

@@ -1,0 +1,105 @@
+{% extends "web/base.html" %}
+
+{% block title %}Error {{ error_code or '' }} - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-6 col-md-8">
+            
+            <div class="text-center mb-4">
+                <div class="error-icon mb-3">
+                    {% if error_code == 404 %}
+                    <i class="fas fa-search fa-4x text-warning"></i>
+                    {% elif error_code == 403 %}
+                    <i class="fas fa-lock fa-4x text-danger"></i>
+                    {% elif error_code == 401 %}
+                    <i class="fas fa-user-times fa-4x text-warning"></i>
+                    {% else %}
+                    <i class="fas fa-exclamation-triangle fa-4x text-danger"></i>
+                    {% endif %}
+                </div>
+                
+                <h1 class="display-4 fw-bold text-dark">
+                    {{ error_title or 'Error' }}
+                </h1>
+                
+                {% if error_code %}
+                <h2 class="text-muted">{{ error_code }}</h2>
+                {% endif %}
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <div class="text-center">
+                        <p class="lead mb-4">
+                            {{ error_message or 'An unexpected error occurred.' }}
+                        </p>
+                        
+                        {% if error_code == 404 %}
+                        <p class="text-muted">
+                            The page you're looking for could not be found.
+                        </p>
+                        {% elif error_code == 403 %}
+                        <p class="text-muted">
+                            You don't have permission to access this resource.
+                        </p>
+                        {% elif error_code == 401 %}
+                        <p class="text-muted">
+                            Please authenticate with Epic to access this feature.
+                        </p>
+                        {% endif %}
+                        
+                        <div class="mt-4">
+                            {% if show_home_link %}
+                            <a href="{{ url_for('web.index') }}" class="btn btn-primary me-2">
+                                <i class="fas fa-home me-1"></i>
+                                Go Home
+                            </a>
+                            {% endif %}
+                            
+                            {% if user_session.authenticated %}
+                            <a href="{{ url_for('web.menu') }}" class="btn btn-outline-primary me-2">
+                                <i class="fas fa-tachometer-alt me-1"></i>
+                                Main Menu
+                            </a>
+                            {% endif %}
+                            
+                            <button onclick="history.back()" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-1"></i>
+                                Go Back
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Additional Help -->
+            <div class="mt-4 text-center">
+                <p class="text-muted">
+                    Need help? 
+                    <a href="{{ url_for('web.help_page') }}" class="text-decoration-none">
+                        Check our help documentation
+                    </a>
+                    or contact your system administrator.
+                </p>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .error-icon {
+        animation: pulse 2s ease-in-out infinite;
+    }
+    
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+</style>
+{% endblock %}

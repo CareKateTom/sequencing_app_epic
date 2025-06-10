@@ -254,3 +254,63 @@ def is_authenticated() -> bool:
         
     except Exception:
         return False
+    
+def optional_authentication():
+    """
+    Decorator for routes that work with or without authentication.
+    
+    Passes token to function if available, None otherwise.
+    """
+    def decorator(f: Callable) -> Callable:
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            try:
+                # Try to get valid token but don't require it
+                token = session.get('token')
+                if token:
+                    token_manager = get_token_manager()
+                    if token_manager.validate_token(token) and not token_manager.is_token_expired(token):
+                        kwargs['token'] = token
+                        g.token = token
+                        g.epic_user_id = token.get('epicUserID')
+                    else:
+                        kwargs['token'] = None
+                else:
+                    kwargs['token'] = None
+                
+                return f(*args, **kwargs)
+                
+            except Exception as e:
+                logger.warning(f"Optional authentication failed: {e}")
+                kwargs['token'] = None
+                return f(*args, **kwargs)
+        
+        return decorated_function
+    return decorator
+
+
+def get_current_user_info() -> Dict[str, Any]:
+    """
+    Get current user information for templates and API responses.
+    
+    Returns:
+        Dictionary with user context information
+    """
+    if not is_authenticated():
+        return {
+            'authenticated': False,
+            'epic_user_id': None,
+            'launch_type': None
+        }
+    
+    token = session.get('token', {})
+    
+    return {
+        'authenticated': True,
+        'epic_user_id': session.get('epic_user_id'),
+        'launch_type': session.get('launch_type'),
+        'fhir_server': session.get('iss'),
+        'scopes': token.get('scope', '').split() if token.get('scope') else [],
+        'token_expires_at': token.get('expires_at'),
+        'has_epic_endpoints': bool(session.get('get_message_url') or session.get('set_message_url'))
+    }
