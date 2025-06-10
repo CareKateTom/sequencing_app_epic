@@ -7,7 +7,7 @@ Focused on authentication and HL7 messaging workflow.
 from flask import Blueprint, render_template, session, redirect, url_for, request, current_app
 from typing import Dict, Any
 
-from app.core.logging import get_logger, log_security_event, create_audit_log
+from app.core.logging import get_logger, create_audit_log
 from app.auth.decorators import require_valid_token, is_authenticated
 
 logger = get_logger(__name__)
@@ -54,9 +54,8 @@ def menu(token: Dict[str, Any]):
             'hl7_parser': True  # Always available
         }
         
-        # Token information for display
+        # Token information for display (removed FHIR scopes)
         token_info = {
-            'scopes': token.get('scope', '').split() if token.get('scope') else [],
             'expires_in_minutes': _calculate_token_expiry_minutes(token),
             'epic_user_id': epic_user_id
         }

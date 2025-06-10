@@ -1,6 +1,6 @@
 {% extends "web/base.html" %}
 
-{% block title %}Application Menu - {{ app_name }}{% endblock %}
+{% block title %}HL7 Integration Menu - {{ app_name }}{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -13,12 +13,12 @@
                     <div class="row align-items-center">
                         <div class="col-md-8">
                             <h2 class="mb-1">
-                                <i class="fas fa-tachometer-alt me-2"></i>
-                                Welcome to Epic FHIR Integration
+                                <i class="fas fa-exchange-alt me-2"></i>
+                                Epic HL7 Integration
                             </h2>
                             <p class="mb-0">
-                                You are successfully connected to Epic FHIR services. 
-                                Choose from the available features below.
+                                Connected to Epic's bidirectional coding interface. 
+                                Send and receive HL7 messages for clinical workflow automation.
                             </p>
                         </div>
                         <div class="col-md-4 text-end">
@@ -34,190 +34,189 @@
                 </div>
             </div>
 
-            <!-- Connection Status -->
+            <!-- HL7 Connection Status -->
             <div class="card mb-4">
                 <div class="card-header">
                     <h5 class="mb-0">
                         <i class="fas fa-wifi me-2"></i>
-                        Connection Status
+                        HL7 Connection Status
                     </h5>
                 </div>
                 <div class="card-body">
                     <div class="row">
-                        <div class="col-md-6">
-                            <div class="d-flex align-items-center mb-2">
-                                <span class="status-indicator status-connected me-2"></span>
-                                <strong>Epic FHIR Server</strong>
-                            </div>
-                            <small class="text-muted">{{ fhir_server }}</small>
-                        </div>
-                        
-                        <div class="col-md-3">
+                        <div class="col-md-4">
                             <div class="d-flex align-items-center mb-2">
                                 <span class="status-indicator {% if features.bidirectional_hl7 %}status-connected{% else %}status-disconnected{% endif %} me-2"></span>
                                 <strong>HL7 Messaging</strong>
                             </div>
                             <small class="text-muted">
-                                {% if features.bidirectional_hl7 %}Available{% else %}Not Available{% endif %}
-                            </small>
-                        </div>
-                        
-                        <div class="col-md-3">
-                            <div class="d-flex align-items-center mb-2">
-                                <span class="status-indicator {% if token_info.expires_in_minutes and token_info.expires_in_minutes > 30 %}status-connected{% elif token_info.expires_in_minutes and token_info.expires_in_minutes > 5 %}status-warning{% else %}status-disconnected{% endif %} me-2"></span>
-                                <strong>Token Status</strong>
-                            </div>
-                            <small class="text-muted">
-                                {% if token_info.expires_in_minutes %}
-                                    Expires in {{ token_info.expires_in_minutes }} minutes
+                                {% if features.bidirectional_hl7 %}
+                                    Bidirectional interface available
                                 {% else %}
-                                    Active
+                                    HL7 endpoints not available
                                 {% endif %}
                             </small>
                         </div>
+                        
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center mb-2">
+                                <span class="status-indicator {% if features.get_message %}status-connected{% else %}status-disconnected{% endif %} me-2"></span>
+                                <strong>Get Message</strong>
+                            </div>
+                            <small class="text-muted">
+                                {% if features.get_message %}Endpoint available{% else %}Not available{% endif %}
+                            </small>
+                        </div>
+                        
+                        <div class="col-md-4">
+                            <div class="d-flex align-items-center mb-2">
+                                <span class="status-indicator {% if features.set_message %}status-connected{% else %}status-disconnected{% endif %} me-2"></span>
+                                <strong>Set Message</strong>
+                            </div>
+                            <small class="text-muted">
+                                {% if features.set_message %}Endpoint available{% else %}Not available{% endif %}
+                            </small>
+                        </div>
                     </div>
+                    
+                    {% if not features.bidirectional_hl7 %}
+                    <div class="alert alert-warning mt-3">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>HL7 endpoints not available.</strong> 
+                        This application requires launch from Epic with bidirectional coding enabled. 
+                        Contact your Epic administrator to configure HL7 messaging for this application.
+                    </div>
+                    {% endif %}
                 </div>
             </div>
 
         </div>
     </div>
 
-    <!-- Feature Cards -->
+    <!-- HL7 Feature Cards -->
     <div class="row g-4">
         
-        <!-- Patient Data Access -->
+        <!-- HL7 Message Retrieval -->
         <div class="col-lg-6 col-md-6">
-            <div class="card h-100 feature-card {% if not features.fhir_access %}disabled{% endif %}">
+            <div class="card h-100 feature-card {% if not features.get_message %}disabled{% endif %}">
                 <div class="card-body text-center">
                     <div class="feature-icon mb-3">
-                        <i class="fas fa-users fa-3x {% if features.fhir_access %}text-info{% else %}text-muted{% endif %}"></i>
+                        <i class="fas fa-download fa-3x {% if features.get_message %}text-success{% else %}text-muted{% endif %}"></i>
                     </div>
-                    <h5 class="card-title">Patient Data Access</h5>
+                    <h5 class="card-title">Get HL7 Messages</h5>
                     <p class="card-text">
-                        Search and retrieve patient information using Epic's FHIR R4 API.
-                        Access demographics, identifiers, and clinical data.
-                    </p>
-                    
-                    <div class="feature-actions">
-                        {% if features.patient_search %}
-                        <a href="{{ url_for('fhir.search_page') }}" class="btn btn-info me-2">
-                            <i class="fas fa-search me-1"></i>
-                            Patient Search
-                        </a>
-                        {% endif %}
-                        
-                        {% if features.fhir_access %}
-                        <a href="{{ url_for('fhir.get_test_patient') }}" class="btn btn-outline-info">
-                            <i class="fas fa-user me-1"></i>
-                            Test Patient
-                        </a>
-                        {% endif %}
-                    </div>
-                    
-                    {% if not features.fhir_access %}
-                    <div class="text-muted mt-2">
-                        <small>FHIR access not available</small>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-
-        <!-- HL7 Bidirectional Messaging -->
-        <div class="col-lg-6 col-md-6">
-            <div class="card h-100 feature-card {% if not features.bidirectional_hl7 %}disabled{% endif %}">
-                <div class="card-body text-center">
-                    <div class="feature-icon mb-3">
-                        <i class="fas fa-exchange-alt fa-3x {% if features.bidirectional_hl7 %}text-success{% else %}text-muted{% endif %}"></i>
-                    </div>
-                    <h5 class="card-title">HL7 Messaging</h5>
-                    <p class="card-text">
-                        Send and receive HL7 messages through Epic's bidirectional coding interface.
-                        Process ADT^A08 messages for clinical analytics.
+                        Retrieve pending HL7 ADT^A08 messages from Epic's bidirectional coding interface.
+                        Messages are automatically parsed for clinical data extraction.
                     </p>
                     
                     <div class="feature-actions">
                         {% if features.get_message %}
-                        <a href="{{ url_for('hl7.test_get_message') }}" class="btn btn-success me-2">
+                        <a href="{{ url_for('hl7.test_get_message') }}" class="btn btn-success">
                             <i class="fas fa-download me-1"></i>
                             Get Message
                         </a>
-                        {% endif %}
-                        
-                        {% if features.set_message %}
-                        <a href="{{ url_for('hl7.test_set_message') }}" class="btn btn-outline-success">
-                            <i class="fas fa-upload me-1"></i>
-                            Send Message
-                        </a>
+                        {% else %}
+                        <button class="btn btn-outline-secondary" disabled>
+                            <i class="fas fa-download me-1"></i>
+                            Endpoint Not Available
+                        </button>
                         {% endif %}
                     </div>
                     
-                    {% if not features.bidirectional_hl7 %}
+                    {% if not features.get_message %}
                     <div class="text-muted mt-2">
-                        <small>HL7 endpoints not available</small>
+                        <small>Requires Epic EHR launch with coding interface</small>
                     </div>
                     {% endif %}
                 </div>
             </div>
         </div>
 
-        <!-- API Testing & Development -->
+        <!-- HL7 Message Sending -->
         <div class="col-lg-6 col-md-6">
-            <div class="card h-100 feature-card {% if not features.api_testing %}disabled{% endif %}">
+            <div class="card h-100 feature-card {% if not features.set_message %}disabled{% endif %}">
                 <div class="card-body text-center">
                     <div class="feature-icon mb-3">
-                        <i class="fas fa-code fa-3x {% if features.api_testing %}text-warning{% else %}text-muted{% endif %}"></i>
+                        <i class="fas fa-upload fa-3x {% if features.set_message %}text-primary{% else %}text-muted{% endif %}"></i>
                     </div>
-                    <h5 class="card-title">API Testing</h5>
+                    <h5 class="card-title">Send HL7 Messages</h5>
                     <p class="card-text">
-                        Test and explore Epic FHIR API endpoints. Debug authentication,
-                        inspect responses, and validate API access.
+                        Send processed HL7 response messages back to Epic's coding interface.
+                        Includes validation and error handling for message integrity.
                     </p>
                     
                     <div class="feature-actions">
-                        {% if features.api_testing %}
-                        <a href="{{ url_for('fhir.test_api') }}" class="btn btn-warning me-2">
-                            <i class="fas fa-flask me-1"></i>
-                            API Tester
+                        {% if features.set_message %}
+                        <a href="{{ url_for('hl7.test_set_message') }}" class="btn btn-primary">
+                            <i class="fas fa-upload me-1"></i>
+                            Send Message
                         </a>
-                        <a href="{{ url_for('fhir.test_connection') }}" class="btn btn-outline-warning">
-                            <i class="fas fa-plug me-1"></i>
-                            Test Connection
-                        </a>
+                        {% else %}
+                        <button class="btn btn-outline-secondary" disabled>
+                            <i class="fas fa-upload me-1"></i>
+                            Endpoint Not Available
+                        </button>
                         {% endif %}
                     </div>
                     
-                    {% if not features.api_testing %}
+                    {% if not features.set_message %}
                     <div class="text-muted mt-2">
-                        <small>API testing not available</small>
+                        <small>Requires Epic EHR launch with coding interface</small>
                     </div>
                     {% endif %}
                 </div>
             </div>
         </div>
 
-        <!-- HL7 Parser & Analytics -->
+        <!-- HL7 Message Parser -->
+        <div class="col-lg-6 col-md-6">
+            <div class="card h-100 feature-card">
+                <div class="card-body text-center">
+                    <div class="feature-icon mb-3">
+                        <i class="fas fa-file-medical fa-3x text-warning"></i>
+                    </div>
+                    <h5 class="card-title">HL7 Message Parser</h5>
+                    <p class="card-text">
+                        Parse and analyze HL7 ADT^A08 messages. Extract patient demographics, 
+                        diagnosis codes with POA indicators, and procedure data for clinical analytics.
+                    </p>
+                    
+                    <div class="feature-actions">
+                        <a href="{{ url_for('hl7.test_parser') }}" class="btn btn-warning">
+                            <i class="fas fa-file-medical me-1"></i>
+                            Test Parser
+                        </a>
+                    </div>
+                    
+                    <div class="text-muted mt-2">
+                        <small>Available without Epic connection</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HL7 Analytics & PSI -->
         <div class="col-lg-6 col-md-6">
             <div class="card h-100 feature-card">
                 <div class="card-body text-center">
                     <div class="feature-icon mb-3">
                         <i class="fas fa-chart-line fa-3x text-danger"></i>
                     </div>
-                    <h5 class="card-title">HL7 Parser & Analytics</h5>
+                    <h5 class="card-title">Clinical Analytics</h5>
                     <p class="card-text">
-                        Parse HL7 messages and extract data for PSI (Patient Safety Indicator)
-                        algorithms and clinical quality analytics.
+                        Extract PSI (Patient Safety Indicator) data from parsed HL7 messages.
+                        Generate structured data for clinical quality analytics and reporting.
                     </p>
                     
                     <div class="feature-actions">
-                        <a href="{{ url_for('hl7.test_parser') }}" class="btn btn-danger me-2">
-                            <i class="fas fa-file-medical me-1"></i>
-                            Test Parser
+                        <a href="{{ url_for('hl7.test_parser') }}" class="btn btn-danger">
+                            <i class="fas fa-chart-line me-1"></i>
+                            Analytics Demo
                         </a>
-                        <a href="{{ url_for('web.help_page') }}#hl7-parser" class="btn btn-outline-danger">
-                            <i class="fas fa-question-circle me-1"></i>
-                            Learn More
-                        </a>
+                    </div>
+                    
+                    <div class="text-muted mt-2">
+                        <small>PSI-ready data extraction</small>
                     </div>
                 </div>
             </div>
@@ -225,13 +224,13 @@
 
     </div>
 
-    <!-- Token Information -->
+    <!-- Session Information -->
     <div class="row mt-4">
         <div class="col-12">
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0">
-                        <i class="fas fa-key me-2"></i>
+                        <i class="fas fa-info-circle me-2"></i>
                         Session Information
                     </h5>
                 </div>
@@ -246,49 +245,116 @@
                                 <dt>Launch Type:</dt>
                                 <dd>{{ launch_type.replace('_', ' ').title() }}</dd>
                                 
-                                <dt>FHIR Server:</dt>
-                                <dd><small class="text-muted">{{ fhir_server }}</small></dd>
+                                <dt>Session Status:</dt>
+                                <dd>
+                                    <span class="badge bg-success">Active</span>
+                                    {% if token_info.expires_in_minutes and token_info.expires_in_minutes < 30 %}
+                                    <span class="badge bg-warning text-dark ms-1">Expiring Soon</span>
+                                    {% endif %}
+                                </dd>
                             </dl>
                         </div>
                         
                         <div class="col-md-4">
-                            <h6>OAuth Scopes</h6>
-                            <div class="scope-list">
-                                {% for scope in token_info.scopes %}
-                                <span class="badge bg-light text-dark me-1 mb-1">{{ scope }}</span>
-                                {% endfor %}
-                                {% if not token_info.scopes %}
-                                <small class="text-muted">No scopes available</small>
+                            <h6>HL7 Capabilities</h6>
+                            <div class="capability-list">
+                                {% if features.get_message %}
+                                <div class="mb-1">
+                                    <span class="badge bg-success me-1">✓</span>
+                                    getMessage endpoint
+                                </div>
+                                {% endif %}
+                                
+                                {% if features.set_message %}
+                                <div class="mb-1">
+                                    <span class="badge bg-success me-1">✓</span>
+                                    setMessage endpoint
+                                </div>
+                                {% endif %}
+                                
+                                <div class="mb-1">
+                                    <span class="badge bg-info me-1">✓</span>
+                                    HL7 ADT^A08 parser
+                                </div>
+                                
+                                <div class="mb-1">
+                                    <span class="badge bg-info me-1">✓</span>
+                                    PSI data extraction
+                                </div>
+                                
+                                {% if not features.bidirectional_hl7 %}
+                                <div class="text-muted mt-2">
+                                    <small>Limited functionality - Epic EHR launch required for full HL7 interface</small>
+                                </div>
                                 {% endif %}
                             </div>
                         </div>
                         
                         <div class="col-md-4">
-                            <h6>Token Status</h6>
-                            <dl class="small">
-                                {% if token_info.expires_in_minutes %}
-                                <dt>Expires In:</dt>
-                                <dd>
-                                    {{ token_info.expires_in_minutes }} minutes
-                                    {% if token_info.expires_in_minutes < 30 %}
-                                    <span class="badge bg-warning text-dark">Expiring Soon</span>
-                                    {% endif %}
-                                </dd>
+                            <h6>Quick Actions</h6>
+                            <div class="d-grid gap-2">
+                                {% if features.bidirectional_hl7 %}
+                                <a href="{{ url_for('hl7.message_menu') }}" class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-list me-1"></i>
+                                    HL7 Message Menu
+                                </a>
                                 {% endif %}
                                 
-                                <dt>Epic Endpoints:</dt>
-                                <dd>
-                                    {% if features.get_message %}
-                                    <span class="badge bg-success">getMessage</span>
-                                    {% endif %}
-                                    {% if features.set_message %}
-                                    <span class="badge bg-success">setMessage</span>
-                                    {% endif %}
-                                    {% if not features.bidirectional_hl7 %}
-                                    <span class="text-muted">None available</span>
-                                    {% endif %}
-                                </dd>
-                            </dl>
+                                <a href="{{ url_for('web.about') }}" class="btn btn-outline-secondary btn-sm">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    About Application
+                                </a>
+                                
+                                <button onclick="location.reload()" class="btn btn-outline-success btn-sm">
+                                    <i class="fas fa-sync me-1"></i>
+                                    Refresh Status
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Workflow Information -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-route me-2"></i>
+                        HL7 Message Workflow
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-4 mb-3">
+                            <div class="workflow-step">
+                                <div class="step-number bg-success text-white rounded-circle mx-auto mb-2 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                    <i class="fas fa-download"></i>
+                                </div>
+                                <h6>1. Receive</h6>
+                                <small class="text-muted">Get pending HL7 ADT^A08 messages from Epic's coding interface</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="workflow-step">
+                                <div class="step-number bg-warning text-dark rounded-circle mx-auto mb-2 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                    <i class="fas fa-cogs"></i>
+                                </div>
+                                <h6>2. Process</h6>
+                                <small class="text-muted">Parse messages and extract clinical data with PSI indicators</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="workflow-step">
+                                <div class="step-number bg-primary text-white rounded-circle mx-auto mb-2 d-flex align-items-center justify-content-center" style="width: 50px; height: 50px;">
+                                    <i class="fas fa-upload"></i>
+                                </div>
+                                <h6>3. Respond</h6>
+                                <small class="text-muted">Send processed responses back to Epic's coding interface</small>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -332,14 +398,37 @@
         text-align: center;
     }
     
-    .scope-list {
-        max-height: 100px;
+    .capability-list {
+        max-height: 120px;
         overflow-y: auto;
     }
     
     .status-indicator {
         width: 10px;
         height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    
+    .status-connected { 
+        background-color: #28a745; 
+    }
+    
+    .status-disconnected { 
+        background-color: #dc3545; 
+    }
+    
+    .status-warning { 
+        background-color: #ffc107; 
+    }
+    
+    .workflow-step {
+        padding: 1rem;
+    }
+    
+    .step-number {
+        font-weight: bold;
+        font-size: 1.2rem;
     }
     
     .card-body .btn {
