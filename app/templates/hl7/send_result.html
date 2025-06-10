@@ -1,0 +1,121 @@
+{% extends "web/base.html" %}
+
+{% block title %}Send Result - Epic FHIR Integration{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="fas fa-paper-plane me-2"></i>HL7 Message Send Result</h1>
+                <div>
+                    <a href="{{ url_for('web.menu') }}" class="btn btn-outline-secondary me-2">
+                        <i class="fas fa-home me-1"></i>Back to Menu
+                    </a>
+                    <a href="{{ url_for('hl7.test_set_message') }}" class="btn btn-primary">
+                        <i class="fas fa-paper-plane me-1"></i>Send Another
+                    </a>
+                </div>
+            </div>
+
+            <!-- Result Status -->
+            {% if success %}
+            <div class="alert alert-success">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-check-circle fa-2x me-3"></i>
+                    <div>
+                        <h5 class="mb-1">Message Sent Successfully</h5>
+                        <p class="mb-0">Your HL7 message has been successfully sent to Epic's coding interface.</p>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="alert alert-danger">
+                <div class="d-flex align-items-center">
+                    <i class="fas fa-times-circle fa-2x me-3"></i>
+                    <div>
+                        <h5 class="mb-1">Message Send Failed</h5>
+                        <p class="mb-0">{{ error_message or 'An error occurred while sending the HL7 message.' }}</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Epic Response -->
+            {% if epic_response %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-server me-2"></i>
+                        Epic Response
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <pre style="white-space: pre-wrap; font-family: monospace; font-size: 0.9rem; background-color: #f8f9fa; padding: 1rem; border-radius: 0.375rem;">{{ epic_response | tojson(indent=2) }}</pre>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Original Message -->
+            {% if hl7_message %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-file-medical me-2"></i>
+                        Sent HL7 Message
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <pre style="white-space: pre-wrap; font-family: monospace; font-size: 0.9rem; background-color: #f8f9fa; padding: 1rem; border-radius: 0.375rem;">{{ hl7_message }}</pre>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Next Steps -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-arrow-right me-2"></i>
+                        Next Steps
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <div class="text-center">
+                                <a href="{{ url_for('hl7.test_get_message') }}" class="btn btn-success btn-lg d-block">
+                                    <i class="fas fa-download fa-2x mb-2"></i>
+                                    <div>Get New Message</div>
+                                </a>
+                                <small class="text-muted mt-1">Retrieve another message from Epic</small>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <div class="text-center">
+                                <a href="{{ url_for('hl7.test_set_message') }}" class="btn btn-primary btn-lg d-block">
+                                    <i class="fas fa-paper-plane fa-2x mb-2"></i>
+                                    <div>Send Another</div>
+                                </a>
+                                <small class="text-muted mt-1">Send another HL7 message</small>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <div class="text-center">
+                                <a href="{{ url_for('hl7.test_parser') }}" class="btn btn-warning btn-lg d-block">
+                                    <i class="fas fa-file-medical fa-2x mb-2"></i>
+                                    <div>Test Parser</div>
+                                </a>
+                                <small class="text-muted mt-1">Parse and analyze HL7 messages</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

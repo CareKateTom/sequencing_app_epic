@@ -1,0 +1,92 @@
+{% extends "web/base.html" %}
+
+{% block title %}{{ error_title or 'HL7 Error' }} - Epic FHIR Integration{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-6 col-md-8">
+            
+            <div class="text-center mb-4">
+                <div class="error-icon mb-3">
+                    <i class="fas fa-exclamation-triangle fa-4x text-warning"></i>
+                </div>
+                
+                <h1 class="display-5 fw-bold text-dark">
+                    {{ error_title or 'HL7 Error' }}
+                </h1>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <div class="text-center">
+                        <p class="lead mb-4">
+                            {{ error_message or 'An HL7 processing error occurred.' }}
+                        </p>
+                        
+                        {% if error_code %}
+                        <div class="alert alert-info text-start">
+                            <strong>Error Code:</strong> {{ error_code }}
+                        </div>
+                        {% endif %}
+                        
+                        <div class="mt-4">
+                            <div class="d-grid gap-2 d-md-block">
+                                <a href="{{ url_for('web.menu') }}" class="btn btn-primary">
+                                    <i class="fas fa-home me-1"></i>
+                                    Back to Menu
+                                </a>
+                                
+                                <a href="{{ url_for('hl7.test_set_message') }}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-paper-plane me-1"></i>
+                                    Try Send Message Again
+                                </a>
+                                
+                                <a href="{{ url_for('hl7.test_get_message') }}" class="btn btn-outline-success">
+                                    <i class="fas fa-download me-1"></i>
+                                    Get Message Instead
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Troubleshooting Tips -->
+            <div class="mt-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-lightbulb me-2"></i>
+                            Troubleshooting Tips
+                        </h6>
+                    </div>
+                    <div class="card-body">
+                        <ul class="small mb-0">
+                            <li>Ensure you're launched from Epic with bidirectional coding enabled</li>
+                            <li>Check that your HL7 message format is valid</li>
+                            <li>Verify all required segments (MSH, PID, PV1) are present</li>
+                            <li>Try refreshing the page and accessing the feature again</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .error-icon {
+        animation: pulse 2s ease-in-out infinite;
+    }
+    
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+</style>
+{% endblock %}

@@ -338,20 +338,20 @@ def callback():
                 
                 # Store token in session
                 session['token'] = token
-                session.permanent = True  # Make session persistent
+                session.permanent = True
                 
-                # Store Epic-specific context
+                # Store ONLY essential Epic context - reduce session size
                 epic_user_id = token.get('epicUserID')
                 if epic_user_id:
                     session['epic_user_id'] = epic_user_id
                 
-                # Store Epic HL7 endpoints for bidirectional coding
+                # Store Epic HL7 endpoints for bidirectional coding - ONLY if present
                 if token.get('getMessage'):
                     session['get_message_url'] = token['getMessage']
                 if token.get('setMessage'):
                     session['set_message_url'] = token['setMessage']
                 
-                # Log successful authentication
+                # Log successful authentication with endpoint info
                 log_security_event(
                     'oauth_hl7_authentication_success',
                     {
@@ -360,7 +360,9 @@ def callback():
                         'scopes': token.get('scope', '').split(),
                         'has_refresh_token': 'refresh_token' in token,
                         'launch_type': session.get('launch_type'),
-                        'hl7_endpoints_available': bool(token.get('getMessage') or token.get('setMessage'))
+                        'hl7_endpoints_available': bool(token.get('getMessage') or token.get('setMessage')),
+                        'getMessage_available': bool(token.get('getMessage')),
+                        'setMessage_available': bool(token.get('setMessage'))
                     }
                 )
                 

@@ -1,0 +1,167 @@
+{% extends "web/base.html" %}
+
+{% block title %}Send HL7 Message - Epic FHIR Integration{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1><i class="fas fa-paper-plane me-2"></i>Send HL7 Message</h1>
+                <div>
+                    <a href="{{ url_for('web.menu') }}" class="btn btn-outline-secondary me-2">
+                        <i class="fas fa-home me-1"></i>Back to Menu
+                    </a>
+                    <a href="{{ url_for('hl7.test_get_message') }}" class="btn btn-success">
+                        <i class="fas fa-download me-1"></i>Get Message
+                    </a>
+                </div>
+            </div>
+
+            {% if error_message %}
+            <div class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                {{ error_message }}
+            </div>
+            {% endif %}
+
+            {% if validation_errors %}
+            <div class="alert alert-warning">
+                <h5><i class="fas fa-exclamation-triangle me-2"></i>HL7 Validation Errors</h5>
+                <ul class="mb-0">
+                    {% for error in validation_errors %}
+                    <li>{{ error.message }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <!-- HL7 Message Form -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-edit me-2"></i>
+                        HL7 ADT^A08 Message
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('hl7.test_set_message') }}">
+                        <div class="mb-3">
+                            <label for="hl7_message" class="form-label">
+                                <strong>HL7 Message Content</strong>
+                            </label>
+                            <textarea 
+                                class="form-control" 
+                                id="hl7_message" 
+                                name="hl7_message" 
+                                rows="15" 
+                                style="font-family: monospace; font-size: 0.9rem;"
+                                placeholder="Enter your HL7 ADT^A08 message here..."
+                                required>{{ hl7_message or sample_message }}</textarea>
+                            <div class="form-text">
+                                Enter a valid HL7 ADT^A08 message. Each segment should be on a separate line.
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6">
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-paper-plane me-1"></i>
+                                    Send to Epic
+                                </button>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <button type="button" class="btn btn-outline-secondary me-2" onclick="loadSample()">
+                                    <i class="fas fa-file-medical me-1"></i>
+                                    Load Sample
+                                </button>
+                                <button type="button" class="btn btn-outline-warning" onclick="clearMessage()">
+                                    <i class="fas fa-trash me-1"></i>
+                                    Clear
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Instructions -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-info-circle me-2"></i>
+                        HL7 Message Instructions
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Required Segments</h6>
+                            <ul>
+                                <li><strong>MSH</strong> - Message Header</li>
+                                <li><strong>PID</strong> - Patient Identification</li>
+                                <li><strong>PV1</strong> - Patient Visit</li>
+                                <li><strong>DG1</strong> - Diagnosis (optional)</li>
+                                <li><strong>PR1</strong> - Procedure (optional)</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Message Format</h6>
+                            <ul>
+                                <li>Each segment on a separate line</li>
+                                <li>Fields separated by | (pipe)</li>
+                                <li>Components separated by ^ (caret)</li>
+                                <li>Message type should be ADT^A08</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Debug Info (if available) -->
+            {% if set_message_url %}
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="fas fa-cog me-2"></i>
+                        Connection Status
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">
+                        <span class="badge bg-success me-2">✓ Connected</span>
+                        Epic setMessage endpoint is available and ready to receive HL7 messages.
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function loadSample() {
+    const sampleMessage = `{{ sample_message|replace('\n', '\\n')|replace('\r', '') }}`;
+    document.getElementById('hl7_message').value = sampleMessage;
+}
+
+function clearMessage() {
+    if (confirm('Are you sure you want to clear the message?')) {
+        document.getElementById('hl7_message').value = '';
+    }
+}
+
+// Auto-resize textarea
+document.addEventListener('DOMContentLoaded', function() {
+    const textarea = document.getElementById('hl7_message');
+    textarea.addEventListener('input', function() {
+        this.style.height = 'auto';
+        this.style.height = this.scrollHeight + 'px';
+    });
+});
+</script>
+{% endblock %}

@@ -7,7 +7,7 @@ Follows principle: "Secure and compliant, not enterprise-ready"
 
 from functools import wraps
 from typing import Callable, Optional, Dict, Any
-from flask import session, redirect, url_for, request, g, current_app
+from flask import session, redirect, url_for, request, g, current_app, jsonify
 
 from app.core.exceptions import TokenRevokedException, AuthenticationError
 from app.core.logging import get_logger, log_security_event
@@ -93,7 +93,7 @@ def require_epic_launch(f: Callable) -> Callable:
 
 def require_epic_endpoint(endpoint_type: str):
     """
-    Decorator to require specific Epic endpoints (getMessage or setMessage).
+    Simplified decorator to require specific Epic endpoints.
     
     Args:
         endpoint_type: 'getMessage' or 'setMessage'
@@ -101,25 +101,55 @@ def require_epic_endpoint(endpoint_type: str):
     def decorator(f: Callable) -> Callable:
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            token = session.get('token')
-            if not token:
-                raise AuthenticationError("No authentication token found")
-            
-            # Check for endpoint in token or session
-            endpoint_url = (token.get(endpoint_type) or 
-                          session.get(f'{endpoint_type.lower()}_url'))
-            
-            if not endpoint_url:
-                raise AuthenticationError(
-                    f"Epic {endpoint_type} endpoint not available. "
-                    "Ensure application was launched from Epic with bidirectional coding enabled."
-                )
-            
-            # Store endpoint in request context
-            setattr(g, f'{endpoint_type.lower()}_url', endpoint_url)
-            
-            return f(*args, **kwargs)
-            
+            try:
+                # Get token from session
+                token = session.get('token')
+                if not token:
+                    logger.warning(f"No token found for {endpoint_type} endpoint check")
+                    raise AuthenticationError("No authentication token found")
+                
+                # Look for endpoint URL in multiple places
+                endpoint_url = None
+                
+                # Method 1: Direct from token
+                endpoint_url = token.get(endpoint_type)
+                
+                # Method 2: From session with standard naming
+                if not endpoint_url:
+                    if endpoint_type == 'getMessage':
+                        endpoint_url = session.get('get_message_url')
+                    elif endpoint_type == 'setMessage':
+                        endpoint_url = session.get('set_message_url')
+                
+                # Debug logging
+                logger.info(f"Endpoint check for {endpoint_type}: URL={endpoint_url is not None}")
+                
+                if not endpoint_url:
+                    # Log what we actually have for debugging
+                    logger.warning(f"Missing {endpoint_type} endpoint. Token keys: {list(token.keys())}")
+                    logger.warning(f"Session message URLs: getMessage={session.get('get_message_url') is not None}, setMessage={session.get('set_message_url') is not None}")
+                    
+                    error_msg = f"Epic {endpoint_type} endpoint not available"
+                    
+                    if request.is_json:
+                        return jsonify({'error': error_msg}), 400
+                    else:
+                        return redirect(url_for('auth.error', error='missing_endpoint', details=error_msg))
+                
+                # Store endpoint URL in request context
+                setattr(g, f'{endpoint_type.lower()}_url', endpoint_url)
+                
+                # Call the original function
+                return f(*args, **kwargs)
+                
+            except Exception as e:
+                logger.error(f"Decorator error for {endpoint_type}: {str(e)}")
+                
+                if request.is_json:
+                    return jsonify({'error': 'Endpoint check failed'}), 500
+                else:
+                    return redirect(url_for('auth.error', error='endpoint_check_failed'))
+                
         return decorated_function
     return decorator
 
@@ -228,12 +258,26 @@ def _get_epic_client_id() -> str:
 
 
 def _get_token_endpoint() -> str:
-    """Get token endpoint from session metadata."""
+    """Get token endpoint from session metadata or reconstruct from ISS."""
+    # First try to get from metadata if it still exists
     metadata = session.get('metadata')
-    if not metadata or not metadata.get('token'):
-        raise AuthenticationError("Token endpoint not found in session")
+    if metadata and metadata.get('token'):
+        return metadata['token']
     
-    return metadata['token']
+    # If metadata was cleared, reconstruct from ISS
+    iss = session.get('iss')
+    if iss:
+        # For Epic, the token endpoint follows a predictable pattern
+        if 'vendorservices.epic.com' in iss:
+            # Convert FHIR URL to token endpoint
+            base_url = iss.replace('/api/FHIR/R4', '').replace('/api/FHIR/DSTU2', '')
+            return f"{base_url}/oauth2/token"
+        else:
+            # Generic reconstruction - might need adjustment for other Epic instances
+            base_url = iss.rstrip('/').replace('/api/FHIR/R4', '').replace('/api/FHIR/DSTU2', '')
+            return f"{base_url}/oauth2/token"
+    
+    raise AuthenticationError("Token endpoint not available - please re-authenticate")
 
 
 # Simple user info helper for templates

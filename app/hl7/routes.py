@@ -195,160 +195,195 @@ def test_get_message(token: Dict[str, Any]):
 
 
 @require_valid_token
-@require_epic_endpoint('setMessage')
 def test_set_message(token: Dict[str, Any]):
     """
     Test the Epic SetEncoderMessage endpoint with validation.
     
-    Sends HL7 messages to Epic's bidirectional coding interface.
-    
-    Args:
-        token: OAuth2 token from decorator
-        
-    Returns:
-        Rendered form (GET) or result page (POST)
+    FIXED VERSION: Checks endpoints directly in route instead of using problematic decorator.
     """
-    set_message_url = g.set_message_url
-    epic_user_id = session.get('epic_user_id')
-    
-    if request.method == 'POST':
-        try:
-            # Get HL7 message from form
-            hl7_message = request.form.get('hl7_message', '').strip()
+    try:
+        # Check for setMessage endpoint directly in the route
+        set_message_url = token.get('setMessage') or session.get('set_message_url')
+        epic_user_id = session.get('epic_user_id')
+        
+        # Debug logging
+        logger.info(f"Checking setMessage endpoint availability")
+        logger.info(f"Token has setMessage: {bool(token.get('setMessage'))}")
+        logger.info(f"Session has set_message_url: {bool(session.get('set_message_url'))}")
+        
+        if not set_message_url:
+            logger.warning("setMessage endpoint not available")
+            logger.info(f"Available token keys: {list(token.keys())}")
+            logger.info(f"Available session keys with 'message': {[k for k in session.keys() if 'message' in k.lower()]}")
             
-            if not hl7_message:
-                if request.is_json:
-                    return jsonify({'error': 'HL7 message is required'}), 400
+            error_msg = (
+                "Epic setMessage endpoint not available. "
+                "This application requires launch from Epic with bidirectional coding enabled."
+            )
+            
+            if request.is_json:
+                return jsonify({'error': error_msg}), 400
+            
+            return render_template(
+                'hl7/error.html',
+                error_title='HL7 Endpoint Not Available',
+                error_message=error_msg,
+                error_code=400
+            ), 400
+        
+        # setMessage endpoint is available, proceed with the route
+        logger.info(f"setMessage endpoint available: {set_message_url[:50]}...")
+        
+        if request.method == 'POST':
+            try:
+                # Get HL7 message from form
+                hl7_message = request.form.get('hl7_message', '').strip()
                 
-                return render_template(
-                    'hl7/send_message.html',
-                    error_message="HL7 message is required",
-                    hl7_message=hl7_message
+                if not hl7_message:
+                    if request.is_json:
+                        return jsonify({'error': 'HL7 message is required'}), 400
+                    
+                    return render_template(
+                        'hl7/send_message.html',
+                        error_message="HL7 message is required",
+                        hl7_message=hl7_message,
+                        set_message_url=set_message_url  # For debugging
+                    )
+                
+                # Validate HL7 message structure
+                validation_issues = validate_hl7_message(hl7_message)
+                validation_errors = [issue for issue in validation_issues if issue['level'] == 'error']
+                
+                if validation_errors:
+                    logger.warning(f"HL7 validation failed: {validation_errors}")
+                    
+                    if request.is_json:
+                        return jsonify({
+                            'error': 'HL7 validation failed',
+                            'validation_errors': validation_errors
+                        }), 400
+                    
+                    return render_template(
+                        'hl7/send_message.html',
+                        validation_errors=validation_errors,
+                        hl7_message=hl7_message,
+                        set_message_url=set_message_url
+                    )
+                
+                # Parse message for audit logging
+                try:
+                    parsed_data = parse_hl7_message(hl7_message)
+                    patient_id = parsed_data.get('patient', {}).get('patient_id')
+                except:
+                    patient_id = 'unknown'
+                
+                # Set up headers for Epic request
+                headers = {
+                    'Authorization': f"Bearer {token['access_token']}",
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                }
+                
+                # Prepare payload
+                payload = {'Message': hl7_message}
+                
+                # Log the attempt
+                log_epic_event(
+                    'hl7_set_message_attempt',
+                    {
+                        'epic_user_id': epic_user_id,
+                        'patient_id': patient_id,
+                        'message_length': len(hl7_message)
+                    }
                 )
-            
-            # Validate HL7 message structure
-            validation_issues = validate_hl7_message(hl7_message)
-            validation_errors = [issue for issue in validation_issues if issue['level'] == 'error']
-            
-            if validation_errors:
-                logger.warning(f"HL7 validation failed: {validation_errors}")
+                
+                # Send to Epic
+                response = requests.post(
+                    set_message_url, 
+                    headers=headers, 
+                    json=payload, 
+                    timeout=30
+                )
+                response.raise_for_status()
+                
+                # Parse Epic response
+                response_data = response.json()
+                
+                # Create audit log
+                create_audit_log(
+                    action='hl7_message_sent',
+                    resource='hl7_message',
+                    user_id=epic_user_id,
+                    details={
+                        'patient_id': patient_id,
+                        'message_length': len(hl7_message),
+                        'epic_response': response_data,
+                        'success': response.ok
+                    }
+                )
+                
+                logger.info("HL7 message sent to Epic successfully")
                 
                 if request.is_json:
                     return jsonify({
-                        'error': 'HL7 validation failed',
-                        'validation_errors': validation_errors
-                    }), 400
+                        'success': True,
+                        'epic_response': response_data
+                    })
                 
                 return render_template(
-                    'hl7/send_message.html',
-                    validation_errors=validation_errors,
+                    'hl7/send_result.html',
+                    success=True,
+                    epic_response=response_data,
+                    hl7_message=hl7_message
+                )
+                
+            except requests.RequestException as e:
+                logger.error(f"Failed to send HL7 message to Epic: {e}")
+                
+                if request.is_json:
+                    return jsonify({'error': f'Failed to send message: {str(e)}'}), 500
+                
+                return render_template(
+                    'hl7/send_result.html',
+                    success=False,
+                    error_message=f'Failed to send message to Epic: {str(e)}',
                     hl7_message=hl7_message
                 )
             
-            # Parse message for audit logging
-            try:
-                parsed_data = parse_hl7_message(hl7_message)
-                patient_id = parsed_data.get('patient', {}).get('patient_id')
-            except:
-                patient_id = 'unknown'
-            
-            # Set up headers for Epic request
-            headers = {
-                'Authorization': f"Bearer {token['access_token']}",
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            }
-            
-            # Prepare payload
-            payload = {'Message': hl7_message}
-            
-            # Log the attempt
-            log_epic_event(
-                'hl7_set_message_attempt',
-                {
-                    'epic_user_id': epic_user_id,
-                    'patient_id': patient_id,
-                    'message_length': len(hl7_message)
-                }
-            )
-            
-            # Send to Epic
-            response = requests.post(
-                set_message_url, 
-                headers=headers, 
-                json=payload, 
-                timeout=30
-            )
-            response.raise_for_status()
-            
-            # Parse Epic response
-            response_data = response.json()
-            
-            # Create audit log
-            create_audit_log(
-                action='hl7_message_sent',
-                resource='hl7_message',
-                user_id=epic_user_id,
-                details={
-                    'patient_id': patient_id,
-                    'message_length': len(hl7_message),
-                    'epic_response': response_data,
-                    'success': response.ok
-                }
-            )
-            
-            logger.info("HL7 message sent to Epic successfully")
-            
-            if request.is_json:
-                return jsonify({
-                    'success': True,
-                    'epic_response': response_data
-                })
-            
-            return render_template(
-                'hl7/send_result.html',
-                success=True,
-                epic_response=response_data,
-                hl7_message=hl7_message
-            )
-            
-        except requests.RequestException as e:
-            logger.error(f"Failed to send HL7 message to Epic: {e}")
-            
-            if request.is_json:
-                return jsonify({'error': f'Failed to send message: {str(e)}'}), 500
-            
-            return render_template(
-                'hl7/send_result.html',
-                success=False,
-                error_message=f'Failed to send message to Epic: {str(e)}',
-                hl7_message=hl7_message
-            )
+            except Exception as e:
+                logger.error(f"Unexpected error sending HL7 message: {e}")
+                
+                if request.is_json:
+                    return jsonify({'error': 'Internal server error'}), 500
+                
+                return render_template(
+                    'hl7/send_result.html',
+                    success=False,
+                    error_message='An unexpected error occurred while sending the message',
+                    hl7_message=hl7_message
+                )
         
-        except Exception as e:
-            logger.error(f"Unexpected error sending HL7 message: {e}")
-            
-            if request.is_json:
-                return jsonify({'error': 'Internal server error'}), 500
-            
-            return render_template(
-                'hl7/send_result.html',
-                success=False,
-                error_message='An unexpected error occurred while sending the message',
-                hl7_message=hl7_message
-            )
-    
-    # GET request - show form
-    sample_message = """MSH|^~\\&|ENCODER|VENDOR|EPIC|HOSPITAL|20241205143022||ADT^A08^ADT_A08|12345|P|2.5.1
+        # GET request - show form
+        sample_message = """MSH|^~\\&|ENCODER|VENDOR|EPIC|HOSPITAL|20241205143022||ADT^A08^ADT_A08|12345|P|2.5.1
 PID|||123456789^^^MR^EPIC||DOE^JOHN^M||19801215|M||2076-8^NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER^HL70005
 PV1||I|ICU^101^A|E|||1234^SMITH^JANE^M|||SUR||||A|||5678^JONES^ROBERT^L|||987654321
 DG1|1||I21.9^Acute myocardial infarction, unspecified^ICD10||20241201|F||||||||||||||||||||Y|N
 PR1|1||0JT70ZZ^Resection of Right Knee Joint, Open Approach^ICD10PCS|||20241202||||1234^SMITH^JANE^M"""
-    
-    return render_template(
-        'hl7/send_message.html',
-        sample_message=sample_message
-    )
+        
+        return render_template(
+            'hl7/send_message.html',
+            sample_message=sample_message,
+            set_message_url=set_message_url  # Pass URL to template for debugging
+        )
+        
+    except Exception as e:
+        logger.error(f"Error in test_set_message: {e}", exc_info=True)
+        return render_template(
+            'hl7/error.html',
+            error_title='Unexpected Error',
+            error_message='An error occurred while accessing the send message page',
+            error_code=500
+        ), 500
 
 
 def test_parser():
