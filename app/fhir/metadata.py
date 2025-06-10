@@ -1,6 +1,7 @@
 """
 Epic FHIR metadata parsing and capability statement handling.
 
+Updated to handle both FHIR DSTU2 and R4 versions.
 Healthcare-focused metadata processing for Epic FHIR servers.
 Follows principle: "Secure and compliant, not enterprise-ready"
 """
@@ -18,15 +19,20 @@ class EpicFHIRMetadata:
     """
     Epic FHIR server metadata and capability statement parser.
     
+    Supports both FHIR DSTU2 (Conformance) and R4 (CapabilityStatement) formats.
     Simple processing focused on OAuth2 endpoints and basic capabilities.
-    No enterprise caching or complex validation - just what we need.
     """
     
     def __init__(self, metadata_json: Dict[str, Any]):
         """Initialize metadata parser with capability statement."""
         self.raw_metadata = metadata_json
+        self.resource_type = metadata_json.get('resourceType')
         self.fhir_version = metadata_json.get('fhirVersion')
         self.software_version = self._extract_software_version(metadata_json)
+        
+        # Detect FHIR version from resource type
+        self.is_dstu2 = self.resource_type == 'Conformance'
+        self.is_r4 = self.resource_type == 'CapabilityStatement'
         
         # Extract OAuth2 endpoints for authentication
         self.auth_endpoints = self._extract_auth_endpoints(metadata_json)
@@ -34,7 +40,7 @@ class EpicFHIRMetadata:
         # Extract supported resources and operations
         self.rest_capabilities = self._extract_rest_capabilities(metadata_json)
         
-        logger.info(f"Parsed Epic FHIR metadata (version: {self.fhir_version})")
+        logger.info(f"Parsed Epic FHIR metadata (version: {self.fhir_version}, type: {self.resource_type})")
     
     def _extract_software_version(self, metadata: Dict[str, Any]) -> Optional[str]:
         """Extract Epic software version information."""
@@ -45,6 +51,7 @@ class EpicFHIRMetadata:
         """
         Extract OAuth2 authorization and token endpoints from capability statement.
         
+        Handles both FHIR DSTU2 and R4 formats.
         Epic includes these in the security extension.
         """
         endpoints = {}
@@ -163,6 +170,9 @@ class EpicFHIRMetadata:
         """Get summary of server capabilities for debugging."""
         return {
             'fhir_version': self.fhir_version,
+            'resource_type': self.resource_type,
+            'is_dstu2': self.is_dstu2,
+            'is_r4': self.is_r4,
             'software_version': self.software_version,
             'oauth_endpoints': list(self.auth_endpoints.keys()),
             'supported_resources': list(self.rest_capabilities.get('resources', {}).keys()),
@@ -174,6 +184,8 @@ class EpicFHIRMetadata:
 def get_epic_metadata(fhir_base_url: str, timeout: int = 30) -> EpicFHIRMetadata:
     """
     Fetch and parse Epic FHIR metadata/capability statement.
+    
+    Supports both FHIR DSTU2 and R4 versions.
     
     Args:
         fhir_base_url: Base URL of Epic FHIR server
@@ -207,15 +219,21 @@ def get_epic_metadata(fhir_base_url: str, timeout: int = 30) -> EpicFHIRMetadata
         # Parse JSON response
         metadata_json = response.json()
         
-        # Validate basic structure
-        if metadata_json.get('resourceType') != 'CapabilityStatement':
-            raise FHIRError(f"Expected CapabilityStatement, got {metadata_json.get('resourceType')}")
+        # Validate basic structure - handle both DSTU2 and R4
+        resource_type = metadata_json.get('resourceType')
         
-        # Log successful retrieval
+        if resource_type not in ['CapabilityStatement', 'Conformance']:
+            raise FHIRError(f"Expected CapabilityStatement (R4) or Conformance (DSTU2), got {resource_type}")
+        
+        # Log successful retrieval with version detection
+        fhir_version_detected = "DSTU2" if resource_type == 'Conformance' else "R4"
+        
         log_security_event(
             'fhir_metadata_retrieved',
             {
                 'fhir_server': fhir_base_url,
+                'resource_type': resource_type,
+                'fhir_version_detected': fhir_version_detected,
                 'fhir_version': metadata_json.get('fhirVersion'),
                 'software_name': metadata_json.get('software', {}).get('name'),
                 'success': True
@@ -228,6 +246,12 @@ def get_epic_metadata(fhir_base_url: str, timeout: int = 30) -> EpicFHIRMetadata
         # Validate OAuth endpoints for Epic integration
         if not parsed_metadata.has_smart_capabilities():
             logger.warning("Epic FHIR server does not appear to support SMART on FHIR")
+        
+        # Log FHIR version compatibility info
+        if parsed_metadata.is_dstu2:
+            logger.info("Epic server using FHIR DSTU2 - compatibility mode enabled")
+        elif parsed_metadata.is_r4:
+            logger.info("Epic server using FHIR R4 - native mode")
         
         return parsed_metadata
         
@@ -299,8 +323,10 @@ def validate_epic_endpoints(metadata: EpicFHIRMetadata) -> List[str]:
             if 'read' not in interactions:
                 issues.append(f"{resource} resource does not support read operation")
     
-    # Check FHIR version
-    if metadata.fhir_version and not metadata.fhir_version.startswith('4.'):
+    # Check FHIR version and provide compatibility notes
+    if metadata.is_dstu2:
+        issues.append("Server uses FHIR DSTU2 - some R4 features may not be available")
+    elif metadata.fhir_version and not metadata.fhir_version.startswith('4.'):
         issues.append(f"FHIR version {metadata.fhir_version} may not be fully supported (R4 recommended)")
     
     return issues
@@ -322,6 +348,9 @@ def get_epic_smart_configuration(fhir_base_url: str) -> Dict[str, Any]:
         config = {
             'fhir_server': fhir_base_url,
             'fhir_version': metadata.fhir_version,
+            'resource_type': metadata.resource_type,
+            'is_dstu2': metadata.is_dstu2,
+            'is_r4': metadata.is_r4,
             'authorization_endpoint': metadata.auth_endpoints.get('authorize'),
             'token_endpoint': metadata.auth_endpoints.get('token'),
             'revocation_endpoint': metadata.auth_endpoints.get('revoke'),
