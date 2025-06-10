@@ -12,7 +12,7 @@ from werkzeug.exceptions import HTTPException
 
 from app.config import load_config
 from app.core.logging import setup_logging, get_logger, log_security_event
-from app.core.exceptions import EpicFHIRError
+from app.core.exceptions import EpicHL7Error
 from app.core.secrets import get_secret_manager
 
 # Import blueprints - REMOVED FHIR blueprint
@@ -131,8 +131,8 @@ def setup_security_handlers(app: Flask) -> None:
             }
         )
     
-    @app.errorhandler(EpicFHIRError)
-    def handle_epic_error(error: EpicFHIRError):
+    @app.errorhandler(EpicHL7Error)
+    def handle_epic_error(error: EpicHL7Error):
         """Handle Epic HL7 specific errors with security logging."""
         log_security_event(
             'application_error',

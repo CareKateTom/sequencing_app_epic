@@ -10,7 +10,7 @@ from typing import Optional
 from google.cloud import secretmanager
 from google.api_core.exceptions import NotFound, PermissionDenied, GoogleAPIError
 
-from app.core.exceptions import EpicFHIRError
+from app.core.exceptions import EpicHL7Error
 from app.core.logging import get_logger, log_security_event
 
 logger = get_logger(__name__)
@@ -38,7 +38,7 @@ class GCPSecretManager:
             logger.info(f"Initialized GCP Secret Manager for project: {project_id}")
         except Exception as e:
             logger.error(f"Failed to initialize Secret Manager client: {e}")
-            raise EpicFHIRError(f"Failed to initialize Secret Manager: {e}")
+            raise EpicHL7Error(f"Failed to initialize Secret Manager: {e}")
     
     def get_secret(self, secret_id: str, version: str = "latest") -> str:
         """
@@ -52,7 +52,7 @@ class GCPSecretManager:
             The secret value as a string
             
         Raises:
-            EpicFHIRError: If secret retrieval fails
+            EpicHL7Error: If secret retrieval fails
         """
         try:
             # Construct the resource name
@@ -66,7 +66,7 @@ class GCPSecretManager:
             
             # Basic validation
             if not secret_value or not secret_value.strip():
-                raise EpicFHIRError(f"Secret '{secret_id}' is empty")
+                raise EpicHL7Error(f"Secret '{secret_id}' is empty")
             
             # Log successful access for security monitoring
             log_security_event(
@@ -96,7 +96,7 @@ class GCPSecretManager:
                 level='ERROR'
             )
             
-            raise EpicFHIRError(error_msg)
+            raise EpicHL7Error(error_msg)
             
         except PermissionDenied:
             error_msg = f"Permission denied accessing secret '{secret_id}'"
@@ -113,7 +113,7 @@ class GCPSecretManager:
                 level='ERROR'
             )
             
-            raise EpicFHIRError(error_msg)
+            raise EpicHL7Error(error_msg)
             
         except GoogleAPIError as e:
             error_msg = f"Google API error retrieving secret '{secret_id}': {e}"
@@ -128,7 +128,7 @@ class GCPSecretManager:
                 level='ERROR'
             )
             
-            raise EpicFHIRError(error_msg)
+            raise EpicHL7Error(error_msg)
             
         except Exception as e:
             error_msg = f"Unexpected error retrieving secret '{secret_id}': {e}"
@@ -143,7 +143,7 @@ class GCPSecretManager:
                 level='ERROR'
             )
             
-            raise EpicFHIRError(error_msg)
+            raise EpicHL7Error(error_msg)
 
 
 # Global instance - initialized when needed
@@ -166,7 +166,7 @@ def get_secret_manager(project_id: Optional[str] = None) -> GCPSecretManager:
         if project_id is None:
             project_id = os.getenv('GCP_PROJECT_ID')
             if not project_id:
-                raise EpicFHIRError("GCP_PROJECT_ID environment variable not set")
+                raise EpicHL7Error("GCP_PROJECT_ID environment variable not set")
         
         _secret_manager = GCPSecretManager(project_id)
     

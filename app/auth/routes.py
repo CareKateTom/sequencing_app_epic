@@ -125,22 +125,13 @@ def launch():
             
             try:
                 from app.fhir.metadata import get_epic_metadata
-                metadata = get_epic_metadata(iss)
-                auth_endpoints = metadata.auth_endpoints
+                metadata_dict = get_epic_metadata(iss)
+                auth_endpoints = metadata_dict.get('auth_endpoints', {})
                 
                 if not auth_endpoints.get('authorize') or not auth_endpoints.get('token'):
                     raise ConfigurationError("Epic metadata missing required OAuth endpoints")
                 
                 session['metadata'] = auth_endpoints
-                
-                log_epic_event(
-                    'metadata_retrieved',
-                    {
-                        'iss': iss,
-                        'authorize_endpoint': auth_endpoints.get('authorize'),
-                        'token_endpoint': auth_endpoints.get('token')
-                    }
-                )
                 
             except Exception as e:
                 logger.error(f"Failed to retrieve Epic metadata: {e}")
