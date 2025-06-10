@@ -1,0 +1,109 @@
+/* Epic FHIR Integration - Main Application Styles */
+
+/* Layout and Structure */
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.main-content {
+    flex: 1;
+}
+
+/* Navigation */
+.navbar-brand {
+    font-weight: bold;
+}
+
+.user-info {
+    font-size: 0.9rem;
+    color: #6c757d;
+}
+
+/* Status Indicators */
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 5px;
+}
+
+.status-connected { 
+    background-color: #28a745; 
+}
+
+.status-disconnected { 
+    background-color: #dc3545; 
+}
+
+.status-warning { 
+    background-color: #ffc107; 
+}
+
+/* Feature Cards - Common Styling */
+.feature-card {
+    transition: transform 0.2s;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.feature-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+/* Footer */
+.footer {
+    margin-top: auto;
+    padding: 1rem 0;
+    background-color: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+}
+
+/* Healthcare-specific UI elements */
+.patient-card {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background-color: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.section {
+    margin-bottom: 20px;
+    padding: 15px;
+    border-bottom: 1px solid #eee;
+}
+
+.section h2 {
+    color: #2c3e50;
+    margin-top: 0;
+}
+
+/* Buttons */
+.button {
+    background-color: #3498db;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 4px;
+    text-decoration: none;
+    margin: 0 10px;
+    display: inline-block;
+}
+
+.button:hover {
+    background-color: #2980b9;
+}
+
+.refresh-button {
+    background-color: #2ecc71;
+}
+
+.refresh-button:hover {
+    background-color: #27ae60;
+}

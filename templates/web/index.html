@@ -31,7 +31,7 @@
 
                 <!-- Launch Button -->
                 <div class="mb-5">
-                    <a href="{{ launch_url }}" class="btn btn-primary btn-lg px-5 py-3">
+                    <a href="{{ launch_url }}" class="btn btn-primary btn-lg px-5 py-3 launch-btn">
                         <i class="fas fa-rocket me-2"></i>
                         Launch with Epic
                     </a>
@@ -198,29 +198,14 @@
 
 {% block extra_css %}
 <style>
-    .hero-section {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        margin: -1rem -15px 2rem -15px;
-        padding: 3rem 15px;
-    }
-    
-    .feature-card {
-        border: none;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    
-    .feature-card:hover {
-        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-    }
-    
-    .btn-primary {
+    /* Page-specific styles for index.html */
+    .launch-btn {
         background: linear-gradient(45deg, #007bff, #0056b3);
         border: none;
         box-shadow: 0 4px 15px rgba(0,123,255,0.3);
     }
     
-    .btn-primary:hover {
+    .launch-btn:hover {
         background: linear-gradient(45deg, #0056b3, #004085);
         box-shadow: 0 6px 20px rgba(0,123,255,0.4);
         transform: translateY(-1px);
