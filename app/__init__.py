@@ -1,6 +1,7 @@
 """
-Flask application factory for Epic FHIR Integration.
+Flask application factory for Epic HL7 Integration.
 
+Streamlined for HL7 messaging focus - removed FHIR dependencies.
 Healthcare-focused application factory prioritizing security, compliance, and auditability.
 Follows the principle: "Secure and compliant, not enterprise-ready"
 """
@@ -14,9 +15,8 @@ from app.core.logging import setup_logging, get_logger, log_security_event
 from app.core.exceptions import EpicFHIRError
 from app.core.secrets import get_secret_manager
 
-# Import blueprints
+# Import blueprints - REMOVED FHIR blueprint
 from app.auth.routes import create_auth_blueprint
-from app.fhir.routes import create_fhir_blueprint
 from app.hl7.routes import create_hl7_blueprint
 from app.web.routes import create_web_blueprint
 
@@ -25,14 +25,14 @@ logger = get_logger(__name__)
 
 def create_app() -> Flask:
     """
-    Create and configure Flask application for Epic FHIR Integration.
+    Create and configure Flask application for Epic HL7 Integration.
     
     Focuses on security, compliance, and audit logging for healthcare environments.
     
     Returns:
         Configured Flask application instance
     """
-    logger.info("Creating Epic FHIR Integration application")
+    logger.info("Creating Epic HL7 Integration application")
     
     # Create Flask app
     app = Flask(__name__)
@@ -54,7 +54,7 @@ def create_app() -> Flask:
     setup_security_handlers(app)
     
     logger.info(
-        "Epic FHIR Integration application created",
+        "Epic HL7 Integration application created",
         extra={
             'environment': config.FLASK_ENV,
             'host': config.HOST,
@@ -94,11 +94,7 @@ def register_blueprints(app: Flask) -> None:
         auth_bp = create_auth_blueprint()
         app.register_blueprint(auth_bp)
         
-        # FHIR API interactions
-        fhir_bp = create_fhir_blueprint()
-        app.register_blueprint(fhir_bp, url_prefix='/fhir')
-        
-        # HL7 bidirectional messaging
+        # HL7 bidirectional messaging - MAIN FOCUS
         hl7_bp = create_hl7_blueprint()
         app.register_blueprint(hl7_bp, url_prefix='/hl7')
         
@@ -106,7 +102,7 @@ def register_blueprints(app: Flask) -> None:
         web_bp = create_web_blueprint()
         app.register_blueprint(web_bp)
         
-        logger.info("All blueprints registered")
+        logger.info("All blueprints registered (Auth, HL7, Web)")
         
     except Exception as e:
         logger.error(f"Failed to register blueprints: {e}")
@@ -137,12 +133,12 @@ def setup_security_handlers(app: Flask) -> None:
     
     @app.errorhandler(EpicFHIRError)
     def handle_epic_error(error: EpicFHIRError):
-        """Handle Epic FHIR specific errors with security logging."""
+        """Handle Epic HL7 specific errors with security logging."""
         log_security_event(
             'application_error',
             {
                 'error_type': error.__class__.__name__,
-                'error_code': error.error_code,
+                'error_code': getattr(error, 'error_code', 'unknown'),
                 'request_path': request.path,
                 'request_id': getattr(g, 'request_id', 'unknown')
             },
@@ -217,27 +213,6 @@ def setup_security_handlers(app: Flask) -> None:
         return response
 
 
-def run_development_server(app: Flask) -> None:
-    """Run development server with SSL if available."""
-    ssl_context = app.config.get_ssl_context() if hasattr(app.config, 'get_ssl_context') else None
-    
-    if ssl_context:
-        logger.info(f"Starting development server with SSL on {app.config['HOST']}:{app.config['PORT']}")
-        app.run(
-            debug=app.config['FLASK_DEBUG'],
-            host=app.config['HOST'],
-            port=app.config['PORT'],
-            ssl_context=ssl_context
-        )
-    else:
-        logger.warning("SSL certificates not found, starting without SSL")
-        app.run(
-            debug=app.config['FLASK_DEBUG'],
-            host=app.config['HOST'],
-            port=8080 if app.config['PORT'] == 443 else app.config['PORT']
-        )
-
-
 # JWKS endpoint for OAuth2 (required for Epic integration)
 def setup_jwks_endpoint(app: Flask) -> None:
     """Setup JWKS endpoint for OAuth2 public key distribution."""
@@ -261,4 +236,23 @@ if __name__ == '__main__':
     # Direct execution for development
     app = create_app()
     setup_jwks_endpoint(app)
-    run_development_server(app)
+    
+    # Simple development server run
+    ssl_context = app.config.get_ssl_context() if hasattr(app.config, 'get_ssl_context') else None
+    
+    if ssl_context:
+        logger.info(f"Starting HL7 Integration with SSL on {app.config['HOST']}:{app.config['PORT']}")
+        app.run(
+            debug=app.config.get('FLASK_DEBUG', False),
+            host=app.config.get('HOST', 'localhost'),
+            port=app.config.get('PORT', 443),
+            ssl_context=ssl_context
+        )
+    else:
+        logger.warning("SSL certificates not found - Epic integration requires HTTPS")
+        port = 8080 if app.config.get('PORT') == 443 else app.config.get('PORT', 8080)
+        app.run(
+            debug=app.config.get('FLASK_DEBUG', False),
+            host=app.config.get('HOST', 'localhost'),
+            port=port
+        )

@@ -1,6 +1,6 @@
 {% extends "web/base.html" %}
 
-{% block title %}Epic FHIR Integration{% endblock %}
+{% block title %}Epic HL7 Integration{% endblock %}
 
 {% block content %}
 <div class="container">
@@ -10,12 +10,12 @@
             <!-- Hero Section -->
             <div class="text-center py-5">
                 <h1 class="display-4 fw-bold text-dark mb-3">
-                    Epic FHIR Integration
+                    Epic HL7 Integration
                 </h1>
                 
                 <p class="lead text-muted mb-4">
-                    Secure healthcare data integration with Epic's FHIR API and bidirectional HL7 messaging.
-                    Built for clinical workflows and patient safety analytics.
+                    Secure bidirectional HL7 messaging with Epic's coding interface.
+                    Built for clinical workflow automation and coding analytics.
                 </p>
 
                 <!-- Launch Button -->
@@ -26,7 +26,7 @@
                     </a>
                     <div class="mt-2">
                         <small class="text-muted">
-                            Securely connect to Epic FHIR services
+                            Connect to Epic's HL7 coding interface
                         </small>
                     </div>
                 </div>
@@ -37,10 +37,13 @@
                 <div class="col-md-6">
                     <div class="card h-100">
                         <div class="card-body text-center">
-                            <h5 class="card-title">Patient Data Access</h5>
+                            <div class="mb-3">
+                                <i class="fas fa-download fa-2x text-success"></i>
+                            </div>
+                            <h5 class="card-title">Receive HL7 Messages</h5>
                             <p class="card-text">
-                                Search and retrieve patient information using Epic's FHIR R4 API with 
-                                comprehensive audit logging and security controls.
+                                Retrieve ADT^A08 messages from Epic's bidirectional coding interface
+                                for processing and clinical analytics.
                             </p>
                         </div>
                     </div>
@@ -49,10 +52,13 @@
                 <div class="col-md-6">
                     <div class="card h-100">
                         <div class="card-body text-center">
-                            <h5 class="card-title">HL7 Messaging</h5>
+                            <div class="mb-3">
+                                <i class="fas fa-upload fa-2x text-primary"></i>
+                            </div>
+                            <h5 class="card-title">Send HL7 Responses</h5>
                             <p class="card-text">
-                                Bidirectional HL7 message processing with Epic's coding interface, 
-                                supporting ADT^A08 messages and clinical analytics.
+                                Send processed HL7 response messages back to Epic's
+                                coding interface with validation and error handling.
                             </p>
                         </div>
                     </div>
@@ -61,10 +67,13 @@
                 <div class="col-md-6">
                     <div class="card h-100">
                         <div class="card-body text-center">
-                            <h5 class="card-title">Security & Compliance</h5>
+                            <div class="mb-3">
+                                <i class="fas fa-file-medical fa-2x text-warning"></i>
+                            </div>
+                            <h5 class="card-title">HL7 Message Parsing</h5>
                             <p class="card-text">
-                                HIPAA-compliant logging, OAuth2 security, and comprehensive 
-                                audit trails for healthcare data access.
+                                Advanced HL7 ADT^A08 parser with PSI data extraction,
+                                diagnosis coding analysis, and clinical data structuring.
                             </p>
                         </div>
                     </div>
@@ -73,11 +82,55 @@
                 <div class="col-md-6">
                     <div class="card h-100">
                         <div class="card-body text-center">
-                            <h5 class="card-title">Clinical Analytics</h5>
+                            <div class="mb-3">
+                                <i class="fas fa-shield-alt fa-2x text-danger"></i>
+                            </div>
+                            <h5 class="card-title">Healthcare Compliance</h5>
                             <p class="card-text">
-                                PSI (Patient Safety Indicator) data extraction and processing 
-                                for clinical quality and risk analytics.
+                                HIPAA-compliant audit logging, secure OAuth2 authentication,
+                                and comprehensive security monitoring for healthcare data.
                             </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Workflow Information -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-route me-2"></i>
+                        HL7 Message Workflow
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 text-center mb-3">
+                            <div class="workflow-step">
+                                <div class="step-number bg-success text-white rounded-circle mx-auto mb-2 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                    1
+                                </div>
+                                <h6>Receive</h6>
+                                <small class="text-muted">Get pending HL7 messages from Epic's coding interface</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-center mb-3">
+                            <div class="workflow-step">
+                                <div class="step-number bg-warning text-dark rounded-circle mx-auto mb-2 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                    2
+                                </div>
+                                <h6>Process</h6>
+                                <small class="text-muted">Parse ADT^A08 messages and extract clinical data</small>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-center mb-3">
+                            <div class="workflow-step">
+                                <div class="step-number bg-primary text-white rounded-circle mx-auto mb-2 d-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                    3
+                                </div>
+                                <h6>Respond</h6>
+                                <small class="text-muted">Send processed responses back to Epic</small>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -86,21 +139,31 @@
             <!-- Getting Started -->
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0">Getting Started</h5>
+                    <h5 class="mb-0">
+                        <i class="fas fa-play-circle me-2"></i>
+                        Getting Started
+                    </h5>
                 </div>
                 <div class="card-body">
-                    <h6>Epic EHR Launch</h6>
+                    <h6>Epic EHR Launch (Recommended)</h6>
                     <p class="mb-3">
-                        This application is designed to be launched from within Epic's EHR system. 
-                        Click the "Launch with Epic" button above to initiate the secure OAuth2 
-                        authentication flow.
+                        Launch this application from within Epic's EHR system with bidirectional 
+                        coding enabled to access the full HL7 messaging interface. This provides 
+                        getMessage and setMessage endpoints for complete workflow automation.
                     </p>
                     
                     <h6>Standalone Testing</h6>
-                    <p class="mb-0">
-                        For testing and development, the application also supports standalone 
-                        launch mode with appropriate Epic sandbox credentials.
+                    <p class="mb-3">
+                        The HL7 message parser is available for standalone testing and development
+                        without Epic connectivity. Use this mode to test message parsing logic
+                        and validate HL7 message structures.
                     </p>
+                    
+                    <div class="alert alert-info">
+                        <strong>Note:</strong> This application requires Epic EHR launch with 
+                        bidirectional coding configuration to access the full HL7 messaging interface.
+                        Contact your Epic administrator to enable bidirectional coding for this application.
+                    </div>
                 </div>
             </div>
 
@@ -131,6 +194,15 @@
     .card:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .workflow-step {
+        padding: 1rem;
+    }
+    
+    .step-number {
+        font-weight: bold;
+        font-size: 1.2rem;
     }
 </style>
 {% endblock %}

@@ -1,6 +1,7 @@
 """
-Exception classes for Epic FHIR Integration application.
+Exception classes for Epic HL7 Integration application.
 
+Streamlined for HL7 messaging focus - removed FHIR-specific exceptions.
 Healthcare-focused exception handling prioritizing security and compliance.
 Follows principle: "Secure and compliant, not enterprise-ready" 
 
@@ -15,9 +16,9 @@ from app.core.logging import get_logger, log_security_event
 logger = get_logger(__name__)
 
 
-class EpicFHIRError(Exception):
+class EpicHL7Error(Exception):
     """
-    Base exception class for all Epic FHIR Integration errors.
+    Base exception class for all Epic HL7 Integration errors.
     
     Provides security logging and context preservation for healthcare compliance.
     """
@@ -57,7 +58,7 @@ class EpicFHIRError(Exception):
         return self.message
 
 
-class AuthenticationError(EpicFHIRError):
+class AuthenticationError(EpicHL7Error):
     """
     Authentication and authorization errors.
     
@@ -68,26 +69,7 @@ class AuthenticationError(EpicFHIRError):
         super().__init__(message, **kwargs)
 
 
-class FHIRError(EpicFHIRError):
-    """
-    FHIR API interaction errors.
-    
-    Covers Epic FHIR server errors, client errors, and resource access issues.
-    """
-    
-    def __init__(
-        self, 
-        message: str, 
-        status_code: Optional[int] = None,
-        **kwargs
-    ):
-        super().__init__(message, **kwargs)
-        self.status_code = status_code
-        if status_code:
-            self.context['status_code'] = status_code
-
-
-class HL7Error(EpicFHIRError):
+class HL7Error(EpicHL7Error):
     """
     HL7 message processing errors.
     
@@ -105,9 +87,28 @@ class HL7Error(EpicFHIRError):
             self.context['segment'] = segment
 
 
+class NetworkError(EpicHL7Error):
+    """
+    Network and communication errors.
+    
+    Covers Epic API connectivity, timeouts, and communication failures.
+    """
+    
+    def __init__(
+        self, 
+        message: str, 
+        status_code: Optional[int] = None,
+        **kwargs
+    ):
+        super().__init__(message, **kwargs)
+        self.status_code = status_code
+        if status_code:
+            self.context['status_code'] = status_code
+
+
 # Utility Functions for Error Handling
 
-def handle_requests_error(response: requests.Response) -> EpicFHIRError:
+def handle_requests_error(response: requests.Response) -> EpicHL7Error:
     """
     Convert requests.Response error to appropriate exception.
     
@@ -141,13 +142,13 @@ def handle_requests_error(response: requests.Response) -> EpicFHIRError:
         return AuthenticationError(f"Access forbidden: {response.reason}", context=context)
     
     elif 400 <= status_code < 500:
-        return FHIRError(f"Client error: {response.reason}", status_code=status_code, context=context)
+        return NetworkError(f"Client error: {response.reason}", status_code=status_code, context=context)
     
     elif 500 <= status_code < 600:
-        return FHIRError(f"Server error: {response.reason}", status_code=status_code, context=context)
+        return NetworkError(f"Server error: {response.reason}", status_code=status_code, context=context)
     
     else:
-        return EpicFHIRError(f"Unexpected HTTP status: {status_code} {response.reason}", context=context)
+        return EpicHL7Error(f"Unexpected HTTP status: {status_code} {response.reason}", context=context)
 
 
 def _is_token_revoked(response: requests.Response) -> bool:
@@ -193,8 +194,9 @@ def _is_token_revoked(response: requests.Response) -> bool:
 
 
 # Legacy Exception Aliases for Backward Compatibility
-# These map to our simplified 4-exception structure
+# These map to our simplified 3-exception structure
 
+# Authentication-related aliases
 TokenRevokedException = AuthenticationError
 TokenExpiredError = AuthenticationError
 TokenRefreshError = AuthenticationError
@@ -202,19 +204,20 @@ TokenError = AuthenticationError
 InvalidTokenError = AuthenticationError
 AuthorizationError = AuthenticationError
 
-FHIRClientError = FHIRError
-FHIRServerError = FHIRError
-ResourceNotFoundError = FHIRError
-InvalidSearchParametersError = FHIRError
-NetworkError = FHIRError
-APITimeoutError = FHIRError
-APIConnectionError = FHIRError
-
+# HL7-related aliases
 HL7ParseError = HL7Error
 HL7ValidationError = HL7Error
 HL7MessageError = HL7Error
 
-ConfigurationError = EpicFHIRError
-SecretManagerError = EpicFHIRError
-ValidationError = EpicFHIRError
-PatientDataValidationError = EpicFHIRError
+# Network-related aliases
+APITimeoutError = NetworkError
+APIConnectionError = NetworkError
+
+# Configuration and validation aliases
+ConfigurationError = EpicHL7Error
+SecretManagerError = EpicHL7Error
+ValidationError = EpicHL7Error
+
+# Remove all FHIR-specific exceptions - they're no longer needed
+# FHIRError, FHIRClientError, FHIRServerError, ResourceNotFoundError, etc.
+# are now replaced with NetworkError or EpicHL7Error as appropriate
