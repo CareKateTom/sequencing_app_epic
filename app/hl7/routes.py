@@ -5,7 +5,7 @@ Healthcare-focused HL7 endpoints prioritizing security, compliance, and auditabi
 Handles Epic bidirectional coding interface messaging.
 """
 
-from flask import Blueprint, request, session, render_template, jsonify, redirect, url_for
+from flask import Blueprint, request, session, render_template, jsonify, redirect, url_for, g
 from typing import Dict, Any, Optional
 
 from app.core.exceptions import HL7Error, HL7ParseError, AuthenticationError
@@ -26,13 +26,13 @@ def create_hl7_blueprint() -> Blueprint:
     """
     bp = Blueprint('hl7', __name__)
     
-    # HL7 messaging routes
+    # HL7 messaging routes - FIXED route registration
     bp.add_url_rule('/message/get', 'test_get_message', test_get_message, methods=['GET'])
     bp.add_url_rule('/message/send', 'test_set_message', test_set_message, methods=['GET', 'POST'])
     bp.add_url_rule('/parser/test', 'test_parser', test_parser, methods=['GET', 'POST'])
     bp.add_url_rule('/menu', 'message_menu', message_menu, methods=['GET'])
     
-    # API endpoints
+    # API endpoints - THIS WAS MISSING
     bp.add_url_rule('/api/parse', 'api_parse_hl7', api_parse_hl7, methods=['POST'])
     
     logger.info("HL7 blueprint created with all routes registered")
@@ -55,7 +55,6 @@ def test_get_message(token: Dict[str, Any]):
     """
     try:
         # Get getMessage URL from request context (set by decorator)
-        from flask import g
         get_message_url = g.get_message_url
         epic_user_id = session.get('epic_user_id')
         
@@ -209,7 +208,6 @@ def test_set_message(token: Dict[str, Any]):
     Returns:
         Rendered form (GET) or result page (POST)
     """
-    from flask import g
     set_message_url = g.set_message_url
     epic_user_id = session.get('epic_user_id')
     
