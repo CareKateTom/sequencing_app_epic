@@ -206,15 +206,8 @@ def test_set_message(token: Dict[str, Any]):
         set_message_url = token.get('setMessage') or session.get('set_message_url')
         epic_user_id = session.get('epic_user_id')
         
-        # Debug logging
-        logger.info(f"Checking setMessage endpoint availability")
-        logger.info(f"Token has setMessage: {bool(token.get('setMessage'))}")
-        logger.info(f"Session has set_message_url: {bool(session.get('set_message_url'))}")
-        
         if not set_message_url:
             logger.warning("setMessage endpoint not available")
-            logger.info(f"Available token keys: {list(token.keys())}")
-            logger.info(f"Available session keys with 'message': {[k for k in session.keys() if 'message' in k.lower()]}")
             
             error_msg = (
                 "Epic setMessage endpoint not available. "
@@ -232,8 +225,6 @@ def test_set_message(token: Dict[str, Any]):
             ), 400
         
         # setMessage endpoint is available, proceed with the route
-        logger.info(f"setMessage endpoint available: {set_message_url[:50]}...")
-        
         if request.method == 'POST':
             try:
                 # Get HL7 message from form
@@ -247,7 +238,6 @@ def test_set_message(token: Dict[str, Any]):
                         'hl7/send_message.html',
                         error_message="HL7 message is required",
                         hl7_message=hl7_message,
-                        set_message_url=set_message_url  # For debugging
                     )
                 
                 # Validate HL7 message structure
@@ -267,7 +257,6 @@ def test_set_message(token: Dict[str, Any]):
                         'hl7/send_message.html',
                         validation_errors=validation_errors,
                         hl7_message=hl7_message,
-                        set_message_url=set_message_url
                     )
                 
                 # Parse message for audit logging
@@ -373,7 +362,6 @@ PR1|1||0JT70ZZ^Resection of Right Knee Joint, Open Approach^ICD10PCS|||20241202|
         return render_template(
             'hl7/send_message.html',
             sample_message=sample_message,
-            set_message_url=set_message_url  # Pass URL to template for debugging
         )
         
     except Exception as e:
