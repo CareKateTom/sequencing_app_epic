@@ -627,7 +627,7 @@ def logout():
 
 
 # Development/Testing Routes
-@require_valid_token()
+@require_valid_token
 def debug_token_info(token: Dict[str, Any]):
     """
     Debug endpoint to display detailed token information.

@@ -1,0 +1,136 @@
+{% extends "web/base.html" %}
+
+{% block title %}Epic FHIR Integration{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-md-10">
+            
+            <!-- Hero Section -->
+            <div class="text-center py-5">
+                <h1 class="display-4 fw-bold text-dark mb-3">
+                    Epic FHIR Integration
+                </h1>
+                
+                <p class="lead text-muted mb-4">
+                    Secure healthcare data integration with Epic's FHIR API and bidirectional HL7 messaging.
+                    Built for clinical workflows and patient safety analytics.
+                </p>
+
+                <!-- Launch Button -->
+                <div class="mb-5">
+                    <a href="/auth/launch" class="btn btn-primary btn-lg px-5 py-3">
+                        <i class="fas fa-rocket me-2"></i>
+                        Launch with Epic
+                    </a>
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            Securely connect to Epic FHIR services
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Features Overview -->
+            <div class="row g-4 mb-5">
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Patient Data Access</h5>
+                            <p class="card-text">
+                                Search and retrieve patient information using Epic's FHIR R4 API with 
+                                comprehensive audit logging and security controls.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">HL7 Messaging</h5>
+                            <p class="card-text">
+                                Bidirectional HL7 message processing with Epic's coding interface, 
+                                supporting ADT^A08 messages and clinical analytics.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Security & Compliance</h5>
+                            <p class="card-text">
+                                HIPAA-compliant logging, OAuth2 security, and comprehensive 
+                                audit trails for healthcare data access.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-6">
+                    <div class="card h-100">
+                        <div class="card-body text-center">
+                            <h5 class="card-title">Clinical Analytics</h5>
+                            <p class="card-text">
+                                PSI (Patient Safety Indicator) data extraction and processing 
+                                for clinical quality and risk analytics.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Getting Started -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Getting Started</h5>
+                </div>
+                <div class="card-body">
+                    <h6>Epic EHR Launch</h6>
+                    <p class="mb-3">
+                        This application is designed to be launched from within Epic's EHR system. 
+                        Click the "Launch with Epic" button above to initiate the secure OAuth2 
+                        authentication flow.
+                    </p>
+                    
+                    <h6>Standalone Testing</h6>
+                    <p class="mb-0">
+                        For testing and development, the application also supports standalone 
+                        launch mode with appropriate Epic sandbox credentials.
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .btn-primary {
+        background: linear-gradient(45deg, #007bff, #0056b3);
+        border: none;
+        box-shadow: 0 4px 15px rgba(0,123,255,0.3);
+    }
+    
+    .btn-primary:hover {
+        background: linear-gradient(45deg, #0056b3, #004085);
+        box-shadow: 0 6px 20px rgba(0,123,255,0.4);
+        transform: translateY(-1px);
+    }
+    
+    .card {
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        transition: transform 0.2s;
+    }
+    
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+</style>
+{% endblock %}

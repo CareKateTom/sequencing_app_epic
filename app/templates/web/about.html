@@ -1,0 +1,125 @@
+{% extends "web/base.html" %}
+
+{% block title %}About - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            
+            <div class="text-center mb-5">
+                <i class="fas fa-info-circle fa-3x text-primary mb-3"></i>
+                <h1 class="display-5">About Epic FHIR Integration</h1>
+                <p class="lead text-muted">Healthcare-focused Epic FHIR integration for clinical workflows</p>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-cogs me-2"></i>Application Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-4">Version:</dt>
+                                <dd class="col-sm-8">{{ app_info.version }}</dd>
+                                
+                                <dt class="col-sm-4">Environment:</dt>
+                                <dd class="col-sm-8">
+                                    {{ app_info.environment.title() }}
+                                    {% if app_info.environment == 'development' %}
+                                    <span class="badge bg-warning text-dark">DEV</span>
+                                    {% endif %}
+                                </dd>
+                            </dl>
+                        </div>
+                        <div class="col-md-6">
+                            <dl class="row">
+                                <dt class="col-sm-4">Epic Server:</dt>
+                                <dd class="col-sm-8">
+                                    <small class="text-muted">{{ app_info.epic_base_url }}</small>
+                                </dd>
+                                
+                                <dt class="col-sm-4">Project ID:</dt>
+                                <dd class="col-sm-8">
+                                    <small class="text-muted">{{ app_info.project_id }}</small>
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% if auth_status.is_authenticated %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-user-check me-2"></i>Current Session</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Epic User ID:</strong> {{ auth_status.epic_user_id }}</p>
+                    <p><strong>Launch Type:</strong> {{ auth_status.launch_type.replace('_', ' ').title() if auth_status.launch_type else 'Unknown' }}</p>
+                    <p class="mb-0"><strong>Status:</strong> <span class="badge bg-success">Connected</span></p>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-features me-2"></i>Features</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>FHIR Integration</h6>
+                            <ul>
+                                <li>Patient data retrieval</li>
+                                <li>FHIR R4 API support</li>
+                                <li>Epic identifier mapping</li>
+                                <li>Comprehensive search</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>HL7 Messaging</h6>
+                            <ul>
+                                <li>Bidirectional HL7 interface</li>
+                                <li>ADT^A08 message parsing</li>
+                                <li>PSI data extraction</li>
+                                <li>Clinical analytics support</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-shield-alt me-2"></i>Security & Compliance</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Authentication</h6>
+                            <ul>
+                                <li>OAuth2 with Epic</li>
+                                <li>JWT client assertions</li>
+                                <li>Automatic token refresh</li>
+                                <li>Secure session management</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Compliance</h6>
+                            <ul>
+                                <li>HIPAA audit logging</li>
+                                <li>Security event monitoring</li>
+                                <li>Patient data access tracking</li>
+                                <li>Comprehensive error handling</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

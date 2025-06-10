@@ -34,56 +34,21 @@ def create_web_blueprint() -> Blueprint:
 
 
 def index():
-    """
-    Main landing page for the Epic FHIR Integration application.
-    
-    Handles both authenticated and unauthenticated users.
-    For unauthenticated users, shows login/launch options.
-    For authenticated users, redirects to main menu.
-    
-    Returns:
-        Rendered index template or redirect to menu
-    """
+    """Main landing page for the Epic FHIR Integration application."""
     try:
-        # Check if user is already authenticated
+        # Simple check for authentication
         if is_authenticated():
-            logger.info("Authenticated user accessing index, redirecting to menu")
             return redirect(url_for('web.menu'))
         
-        # Check if there was a token revocation
-        token_revoked = session.get('token_revoked', False)
-        if token_revoked:
-            session.pop('token_revoked', None)  # Clear the flag
-            logger.info("Displaying index page after token revocation")
-        
-        # Log page access for security monitoring
-        log_security_event(
-            'index_page_accessed',
-            {
-                'user_agent': request.headers.get('User-Agent'),
-                'remote_addr': request.remote_addr,
-                'token_revoked': token_revoked
-            }
-        )
-        
-        # Determine launch URL based on environment
-        launch_url = url_for('auth.launch', _external=True)
-        
-        return render_template(
-            'web/index.html',
-            launch_url=launch_url,
-            token_revoked=token_revoked,
-            app_version=current_app.config.get('VERSION', '1.0.0'),
-            epic_base_url=current_app.config.get('EPIC_BASE_URL', '')
-        )
+        # Simple template rendering
+        return render_template('web/index.html')
         
     except Exception as e:
         logger.error(f"Error rendering index page: {e}")
         return render_template(
             'web/error.html',
             error_title='Application Error',
-            error_message='Unable to load the application homepage.',
-            error_code=500
+            error_message='Unable to load the application homepage.'
         ), 500
 
 

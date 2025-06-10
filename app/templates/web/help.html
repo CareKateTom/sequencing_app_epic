@@ -1,0 +1,248 @@
+{% extends "web/base.html" %}
+
+{% block title %}Help - {{ app_name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-10 mx-auto">
+            
+            <div class="text-center mb-5">
+                <i class="fas fa-question-circle fa-3x text-info mb-3"></i>
+                <h1 class="display-5">Help & Documentation</h1>
+                <p class="lead text-muted">Guide to using Epic FHIR Integration</p>
+            </div>
+
+            {% if help_sections.getting_started %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-play-circle me-2"></i>Getting Started</h5>
+                </div>
+                <div class="card-body">
+                    <h6>Epic Launch Process</h6>
+                    <ol>
+                        <li>Click "Launch with Epic" from the home page</li>
+                        <li>Complete Epic OAuth2 authentication</li>
+                        <li>Access the main application menu</li>
+                        <li>Choose from available features based on your Epic context</li>
+                    </ol>
+                    
+                    <div class="alert alert-info">
+                        <strong>Note:</strong> This application is designed to be launched from Epic's EHR system for full functionality.
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if help_sections.epic_launch %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-rocket me-2"></i>Epic Launch Types</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>EHR Launch</h6>
+                            <p>Launched from within Epic with patient context:</p>
+                            <ul>
+                                <li>Patient context available</li>
+                                <li>HL7 messaging endpoints enabled</li>
+                                <li>Full Epic user context</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Standalone Launch</h6>
+                            <p>Direct launch for testing and development:</p>
+                            <ul>
+                                <li>FHIR API access</li>
+                                <li>Patient search capabilities</li>
+                                <li>Limited Epic context</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if help_sections.patient_search %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-search me-2"></i>Patient Search</h5>
+                </div>
+                <div class="card-body">
+                    <h6>Search Methods</h6>
+                    <ul>
+                        <li><strong>MRN (Medical Record Number):</strong> Search by Epic MRN</li>
+                        <li><strong>EPI (Epic Patient Identifier):</strong> Search by Epic's internal ID</li>
+                        <li><strong>Name:</strong> Search by patient name (family and/or given)</li>
+                    </ul>
+                    
+                    <h6>Search Tips</h6>
+                    <ul>
+                        <li>MRN and EPI searches are exact matches</li>
+                        <li>Name searches support partial matching</li>
+                        <li>Results are limited to 50 patients for performance</li>
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if help_sections.hl7_messaging %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-exchange-alt me-2"></i>HL7 Messaging</h5>
+                </div>
+                <div class="card-body">
+                    <h6>Get Message</h6>
+                    <p>Retrieve HL7 messages from Epic's bidirectional coding interface:</p>
+                    <ul>
+                        <li>Fetches pending coding messages</li>
+                        <li>Automatically parses ADT^A08 messages</li>
+                        <li>Extracts PSI-relevant data</li>
+                    </ul>
+                    
+                    <h6 id="hl7-parser">HL7 Parser</h6>
+                    <p>Parse and analyze HL7 messages:</p>
+                    <ul>
+                        <li>Extract patient demographics</li>
+                        <li>Parse diagnosis codes with POA indicators</li>
+                        <li>Extract procedure codes and dates</li>
+                        <li>Generate PSI-ready data structures</li>
+                    </ul>
+                    
+                    <h6>Send Message</h6>
+                    <p>Send response messages back to Epic:</p>
+                    <ul>
+                        <li>Validate message structure before sending</li>
+                        <li>Support for ADT^A08 response messages</li>
+                        <li>Real-time validation and error reporting</li>
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if help_sections.api_testing %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-flask me-2"></i>API Testing</h5>
+                </div>
+                <div class="card-body">
+                    <h6>FHIR API Tester</h6>
+                    <p>Test Epic FHIR endpoints directly:</p>
+                    <ul>
+                        <li>Enter any FHIR endpoint path</li>
+                        <li>View complete request/response details</li>
+                        <li>Debug authentication and authorization</li>
+                        <li>Inspect FHIR resource structures</li>
+                    </ul>
+                    
+                    <h6>Connection Testing</h6>
+                    <p>Verify Epic connectivity and capabilities:</p>
+                    <ul>
+                        <li>Test FHIR server connection</li>
+                        <li>Retrieve capability statements</li>
+                        <li>Validate token status</li>
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if help_sections.troubleshooting %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-wrench me-2"></i>Troubleshooting</h5>
+                </div>
+                <div class="card-body">
+                    <h6>Common Issues</h6>
+                    
+                    <div class="accordion" id="troubleshootingAccordion">
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="authIssues">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#authCollapse">
+                                    Authentication Failures
+                                </button>
+                            </h2>
+                            <div id="authCollapse" class="accordion-collapse collapse" data-bs-parent="#troubleshootingAccordion">
+                                <div class="accordion-body">
+                                    <ul>
+                                        <li>Verify Epic client credentials are configured</li>
+                                        <li>Check SSL certificates are properly generated</li>
+                                        <li>Ensure callback URL matches Epic configuration</li>
+                                        <li>Verify Epic sandbox access permissions</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="tokenIssues">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#tokenCollapse">
+                                    Token Expiration/Refresh Issues
+                                </button>
+                            </h2>
+                            <div id="tokenCollapse" class="accordion-collapse collapse" data-bs-parent="#troubleshootingAccordion">
+                                <div class="accordion-body">
+                                    <ul>
+                                        <li>Tokens automatically refresh when near expiration</li>
+                                        <li>Check token expiration time in menu</li>
+                                        <li>Re-launch from Epic if refresh fails</li>
+                                        <li>Verify JWT signing key is present</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="hl7Issues">
+                                <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#hl7Collapse">
+                                    HL7 Messaging Issues
+                                </button>
+                            </h2>
+                            <div id="hl7Collapse" class="accordion-collapse collapse" data-bs-parent="#troubleshootingAccordion">
+                                <div class="accordion-body">
+                                    <ul>
+                                        <li>HL7 endpoints only available via EHR launch</li>
+                                        <li>Check Epic bidirectional coding configuration</li>
+                                        <li>Verify message format matches Epic expectations</li>
+                                        <li>Review parsing errors for format issues</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="card">
+                <div class="card-header">
+                    <h5><i class="fas fa-life-ring me-2"></i>Support</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>Technical Support</h6>
+                            <p>For technical issues and questions:</p>
+                            <ul>
+                                <li>Contact: {{ help_config.support_contact }}</li>
+                                <li>Include error messages and steps to reproduce</li>
+                                <li>Provide Epic user ID and launch context</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Documentation</h6>
+                            <p>Additional resources:</p>
+                            <ul>
+                                <li><a href="{{ help_config.documentation_url }}" target="_blank">Full Documentation</a></li>
+                                <li><a href="{{ url_for('web.about') }}">Application Information</a></li>
+                                <li>Epic FHIR R4 Documentation</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "web/base.html" %}
+
+{% block title %}Error - Epic FHIR Integration{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="text-center">
+                <h1 class="display-4">{{ error_title or 'Error' }}</h1>
+                <p class="lead">{{ error_message or 'An error occurred.' }}</p>
+                
+                <div class="mt-4">
+                    <a href="/" class="btn btn-primary me-2">Go Home</a>
+                    <button onclick="history.back()" class="btn btn-outline-secondary">Go Back</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

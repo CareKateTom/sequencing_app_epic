@@ -13,6 +13,8 @@ import uuid
 from typing import Dict, Any, Optional
 from datetime import datetime
 from flask import Flask, request, g, has_request_context
+from contextlib import contextmanager
+import time
 
 
 class SecurityFilter(logging.Filter):
@@ -222,3 +224,19 @@ def create_audit_log(action: str, resource: str, user_id: Optional[str] = None,
         audit_entry['request_id'] = g.request_id
     
     logger.info(f"Audit: {action} {resource}", extra=audit_entry)
+
+@contextmanager
+def log_performance(operation_name: str, logger):
+    """
+    Simple context manager for performance logging.
+    
+    Args:
+        operation_name: Name of the operation being timed
+        logger: Logger instance to use
+    """
+    start_time = time.time()
+    try:
+        yield
+    finally:
+        duration = time.time() - start_time
+        logger.debug(f"Performance: {operation_name} took {duration:.3f}s")
