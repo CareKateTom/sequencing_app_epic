@@ -1,261 +1,68 @@
 """
 FHIR API client for Epic FHIR Integration application.
 
-Healthcare-focused FHIR client prioritizing security, compliance, and auditability.
+Healthcare-focused FHIR client prioritizing security and compliance.
 Follows principle: "Secure and compliant, not enterprise-ready"
 """
 
-import json
-from typing import Dict, List, Optional, Any, Union
-from urllib.parse import urljoin, urlencode
+from typing import Dict, List, Optional, Any
 import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
-from app.core.exceptions import (
-    FHIRError, FHIRClientError, FHIRServerError, ResourceNotFoundError,
-    InvalidSearchParametersError, handle_requests_error
-)
-from app.core.logging import get_logger, log_security_event, create_audit_log, log_performance
+from app.core.exceptions import FHIRError, AuthenticationError, handle_requests_error
+from app.core.logging import get_logger, log_security_event, create_audit_log
 
 logger = get_logger(__name__)
 
 
 class FHIRClient:
     """
-    Simple FHIR client for Epic integration with security and compliance focus.
+    Simple FHIR client for Epic integration with security focus.
     
     Features:
     - Epic-specific authentication and error handling
     - Security logging for all FHIR operations
     - Audit logging for patient data access
-    - Simple retry logic for network issues
-    - Request/response validation
+    - Basic error handling without over-engineering
     """
     
     def __init__(self, base_url: str, timeout: int = 30):
-        """
-        Initialize FHIR client.
-        
-        Args:
-            base_url: Epic FHIR server base URL
-            timeout: Request timeout in seconds
-        """
+        """Initialize FHIR client."""
         self.base_url = base_url.rstrip('/')
         self.timeout = timeout
-        
-        # Setup session with basic retry logic
-        self.session = requests.Session()
-        retry_strategy = Retry(
-            total=2,  # Simple retry, not enterprise-level
-            backoff_factor=1,
-            status_forcelist=[500, 502, 503, 504],
-            allowed_methods=["GET", "POST"]
-        )
-        adapter = HTTPAdapter(max_retries=retry_strategy)
-        self.session.mount("http://", adapter)
-        self.session.mount("https://", adapter)
-        
         logger.info(f"FHIR client initialized for: {self.base_url}")
     
-    def get_resource(
+    def get_patient(
         self, 
-        resource_type: str, 
-        resource_id: str, 
+        patient_id: str, 
         token: str,
         epic_user_id: Optional[str] = None
     ) -> Dict[str, Any]:
-        """
-        Get a specific FHIR resource by ID.
+        """Get a specific patient by FHIR ID."""
+        url = f"{self.base_url}/Patient/{patient_id}"
         
-        Args:
-            resource_type: FHIR resource type (e.g., 'Patient', 'Observation')
-            resource_id: Resource ID
-            token: OAuth2 access token
-            epic_user_id: Epic user ID for audit logging
-            
-        Returns:
-            FHIR resource as dictionary
-            
-        Raises:
-            ResourceNotFoundError: If resource doesn't exist
-            FHIRClientError: For 4xx client errors
-            FHIRServerError: For 5xx server errors
-        """
-        url = f"{self.base_url}/{resource_type}/{resource_id}"
+        # Log access attempt for security monitoring
+        log_security_event(
+            'fhir_patient_access',
+            {
+                'patient_id': patient_id,
+                'epic_user_id': epic_user_id,
+                'url': url
+            }
+        )
         
-        with log_performance(f"fhir_get_{resource_type.lower()}", logger):
-            try:
-                headers = self._build_headers(token)
-                
-                # Log the access attempt for security monitoring
-                log_security_event(
-                    'fhir_resource_access',
-                    {
-                        'resource_type': resource_type,
-                        'resource_id': resource_id,
-                        'epic_user_id': epic_user_id,
-                        'url': url
-                    }
-                )
-                
-                response = self.session.get(url, headers=headers, timeout=self.timeout)
-                
-                # Handle specific error cases
-                if response.status_code == 404:
-                    raise ResourceNotFoundError(resource_type, resource_id)
-                
-                if not response.ok:
-                    raise handle_requests_error(response, {
-                        'resource_type': resource_type,
-                        'resource_id': resource_id
-                    })
-                
-                resource_data = response.json()
-                
-                # Validate FHIR resource structure
-                self._validate_fhir_resource(resource_data, resource_type)
-                
-                # Create audit log for patient data access
-                create_audit_log(
-                    action='read',
-                    resource=f"{resource_type}/{resource_id}",
-                    user_id=epic_user_id,
-                    details={
-                        'resource_type': resource_type,
-                        'success': True
-                    }
-                )
-                
-                logger.info(
-                    f"Retrieved {resource_type} resource",
-                    extra={
-                        'resource_type': resource_type,
-                        'resource_id': resource_id,
-                        'epic_user_id': epic_user_id
-                    }
-                )
-                
-                return resource_data
-                
-            except (ResourceNotFoundError, FHIRClientError, FHIRServerError):
-                # Re-raise FHIR-specific errors
-                raise
-            except requests.RequestException as e:
-                error_msg = f"Network error retrieving {resource_type}/{resource_id}: {str(e)}"
-                logger.error(error_msg)
-                raise FHIRError(error_msg, original_error=e)
-            except Exception as e:
-                error_msg = f"Unexpected error retrieving {resource_type}/{resource_id}: {str(e)}"
-                logger.error(error_msg)
-                raise FHIRError(error_msg, original_error=e)
-    
-    def search_resources(
-        self,
-        resource_type: str,
-        search_params: Dict[str, str],
-        token: str,
-        epic_user_id: Optional[str] = None,
-        max_results: int = 50
-    ) -> Dict[str, Any]:
-        """
-        Search for FHIR resources with parameters.
+        response = self._make_request('GET', url, token)
+        patient_data = response.json()
         
-        Args:
-            resource_type: FHIR resource type to search
-            search_params: Search parameters as key-value pairs
-            token: OAuth2 access token
-            epic_user_id: Epic user ID for audit logging
-            max_results: Maximum number of results to return
-            
-        Returns:
-            FHIR Bundle containing search results
-            
-        Raises:
-            InvalidSearchParametersError: If search parameters are invalid
-            FHIRClientError: For 4xx client errors
-            FHIRServerError: For 5xx server errors
-        """
-        # Validate search parameters
-        if not search_params:
-            raise InvalidSearchParametersError({})
+        # Create audit log for patient data access
+        create_audit_log(
+            action='read',
+            resource=f"Patient/{patient_id}",
+            user_id=epic_user_id,
+            details={'patient_id': patient_id, 'success': True}
+        )
         
-        # Add count parameter to limit results
-        search_params = search_params.copy()
-        search_params['_count'] = str(max_results)
-        
-        url = f"{self.base_url}/{resource_type}"
-        query_string = urlencode(search_params)
-        full_url = f"{url}?{query_string}"
-        
-        with log_performance(f"fhir_search_{resource_type.lower()}", logger):
-            try:
-                headers = self._build_headers(token)
-                
-                # Log search attempt for security monitoring
-                log_security_event(
-                    'fhir_resource_search',
-                    {
-                        'resource_type': resource_type,
-                        'search_params': search_params,
-                        'epic_user_id': epic_user_id
-                    }
-                )
-                
-                response = self.session.get(full_url, headers=headers, timeout=self.timeout)
-                
-                if response.status_code == 400:
-                    raise InvalidSearchParametersError(search_params)
-                
-                if not response.ok:
-                    raise handle_requests_error(response, {
-                        'resource_type': resource_type,
-                        'search_params': search_params
-                    })
-                
-                bundle_data = response.json()
-                
-                # Validate Bundle structure
-                if bundle_data.get('resourceType') != 'Bundle':
-                    raise FHIRError(f"Expected Bundle, got {bundle_data.get('resourceType')}")
-                
-                result_count = len(bundle_data.get('entry', []))
-                
-                # Create audit log for search operation
-                create_audit_log(
-                    action='search',
-                    resource=resource_type,
-                    user_id=epic_user_id,
-                    details={
-                        'resource_type': resource_type,
-                        'search_params': search_params,
-                        'result_count': result_count,
-                        'success': True
-                    }
-                )
-                
-                logger.info(
-                    f"Search completed for {resource_type}",
-                    extra={
-                        'resource_type': resource_type,
-                        'result_count': result_count,
-                        'epic_user_id': epic_user_id
-                    }
-                )
-                
-                return bundle_data
-                
-            except (InvalidSearchParametersError, FHIRClientError, FHIRServerError):
-                # Re-raise FHIR-specific errors
-                raise
-            except requests.RequestException as e:
-                error_msg = f"Network error searching {resource_type}: {str(e)}"
-                logger.error(error_msg)
-                raise FHIRError(error_msg, original_error=e)
-            except Exception as e:
-                error_msg = f"Unexpected error searching {resource_type}: {str(e)}"
-                logger.error(error_msg)
-                raise FHIRError(error_msg, original_error=e)
+        logger.info(f"Retrieved patient: {patient_id}")
+        return patient_data
     
     def search_patients(
         self,
@@ -263,129 +70,193 @@ class FHIRClient:
         token: str,
         epic_user_id: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """
-        Search for patients and return just the Patient resources.
+        """Search for patients with parameters."""
+        if not search_params:
+            raise FHIRError("Search parameters required")
         
-        Args:
-            search_params: Search parameters (identifier, name, etc.)
-            token: OAuth2 access token
-            epic_user_id: Epic user ID for audit logging
-            
-        Returns:
-            List of Patient resources
-        """
-        bundle = self.search_resources('Patient', search_params, token, epic_user_id)
+        # Add count limit for security
+        params = search_params.copy()
+        params['_count'] = '50'
         
+        url = f"{self.base_url}/Patient"
+        
+        # Log search attempt
+        log_security_event(
+            'fhir_patient_search',
+            {
+                'search_params': search_params,
+                'epic_user_id': epic_user_id
+            }
+        )
+        
+        response = self._make_request('GET', url, token, params=params)
+        bundle_data = response.json()
+        
+        # Extract patients from bundle
         patients = []
-        for entry in bundle.get('entry', []):
+        for entry in bundle_data.get('entry', []):
             resource = entry.get('resource', {})
             if resource.get('resourceType') == 'Patient':
                 patients.append(resource)
         
+        # Create audit log
+        create_audit_log(
+            action='search',
+            resource='Patient',
+            user_id=epic_user_id,
+            details={
+                'search_params': search_params,
+                'result_count': len(patients),
+                'success': True
+            }
+        )
+        
+        logger.info(f"Patient search completed: {len(patients)} results")
         return patients
     
-    def get_patient(
+    def get_resource(
         self,
-        patient_id: str,
+        resource_type: str,
+        resource_id: str,
         token: str,
         epic_user_id: Optional[str] = None
     ) -> Dict[str, Any]:
-        """
-        Get a specific patient by ID.
+        """Get any FHIR resource by type and ID."""
+        url = f"{self.base_url}/{resource_type}/{resource_id}"
         
-        Args:
-            patient_id: Patient FHIR ID
-            token: OAuth2 access token
-            epic_user_id: Epic user ID for audit logging
-            
-        Returns:
-            Patient resource
-        """
-        return self.get_resource('Patient', patient_id, token, epic_user_id)
+        log_security_event(
+            'fhir_resource_access',
+            {
+                'resource_type': resource_type,
+                'resource_id': resource_id,
+                'epic_user_id': epic_user_id
+            }
+        )
+        
+        response = self._make_request('GET', url, token)
+        resource_data = response.json()
+        
+        # Basic validation - Epic does the heavy lifting
+        if resource_data.get('resourceType') != resource_type:
+            raise FHIRError(f"Expected {resource_type}, got {resource_data.get('resourceType')}")
+        
+        create_audit_log(
+            action='read',
+            resource=f"{resource_type}/{resource_id}",
+            user_id=epic_user_id
+        )
+        
+        return resource_data
     
     def test_connection(self, token: str) -> Dict[str, Any]:
-        """
-        Test FHIR server connection with capability statement.
-        
-        Args:
-            token: OAuth2 access token
-            
-        Returns:
-            Capability statement or connection status
-        """
+        """Test FHIR server connection."""
         url = f"{self.base_url}/metadata"
         
         try:
-            headers = self._build_headers(token)
-            response = self.session.get(url, headers=headers, timeout=self.timeout)
+            response = self._make_request('GET', url, token)
+            metadata = response.json()
             
-            if response.ok:
-                metadata = response.json()
-                return {
-                    'status': 'connected',
-                    'fhir_version': metadata.get('fhirVersion'),
-                    'software': metadata.get('software', {}),
-                    'implementation': metadata.get('implementation', {})
-                }
-            else:
-                return {
-                    'status': 'error',
-                    'status_code': response.status_code,
-                    'error': response.text
-                }
-                
+            return {
+                'status': 'connected',
+                'fhir_version': metadata.get('fhirVersion'),
+                'software': metadata.get('software', {})
+            }
         except Exception as e:
             return {
                 'status': 'error',
                 'error': str(e)
             }
     
-    def _build_headers(self, token: str) -> Dict[str, str]:
-        """Build standard FHIR request headers."""
-        return {
+    def _make_request(
+        self,
+        method: str,
+        url: str,
+        token: str,
+        params: Optional[Dict[str, str]] = None,
+        data: Optional[Dict[str, Any]] = None
+    ) -> requests.Response:
+        """Make HTTP request to Epic FHIR API."""
+        headers = {
             'Authorization': f'Bearer {token}',
             'Accept': 'application/json+fhir',
             'Content-Type': 'application/json+fhir'
         }
-    
-    def _validate_fhir_resource(self, resource: Dict[str, Any], expected_type: str) -> None:
-        """
-        Basic validation of FHIR resource structure.
         
-        Args:
-            resource: FHIR resource to validate
-            expected_type: Expected resource type
+        try:
+            # Simple request - no complex retry logic
+            response = requests.request(
+                method=method,
+                url=url,
+                headers=headers,
+                params=params,
+                json=data,
+                timeout=self.timeout
+            )
             
-        Raises:
-            FHIRError: If resource is invalid
-        """
-        if not isinstance(resource, dict):
-            raise FHIRError("Resource must be a dictionary")
+            # Handle Epic-specific errors
+            if not response.ok:
+                self._handle_error_response(response)
+            
+            return response
+            
+        except requests.RequestException as e:
+            error_msg = f"FHIR API request failed: {str(e)}"
+            logger.error(error_msg)
+            raise FHIRError(error_msg)
+    
+    def _handle_error_response(self, response: requests.Response) -> None:
+        """Handle Epic FHIR error responses."""
+        status_code = response.status_code
         
-        resource_type = resource.get('resourceType')
-        if not resource_type:
-            raise FHIRError("Resource missing resourceType")
+        # Log security events for auth failures
+        if status_code == 401:
+            log_security_event(
+                'fhir_auth_failure',
+                {'status_code': status_code, 'url': response.url},
+                level='ERROR'
+            )
+            raise AuthenticationError("FHIR authentication failed")
         
-        if resource_type != expected_type:
-            raise FHIRError(f"Expected {expected_type}, got {resource_type}")
+        elif status_code == 403:
+            log_security_event(
+                'fhir_access_denied',
+                {'status_code': status_code, 'url': response.url},
+                level='ERROR'
+            )
+            raise AuthenticationError("FHIR access forbidden")
         
-        if not resource.get('id'):
-            logger.warning(f"{expected_type} resource missing ID field")
+        # Let Epic error details through - they're helpful for debugging
+        try:
+            error_body = response.json()
+            error_msg = self._extract_epic_error_message(error_body)
+        except:
+            error_msg = f"HTTP {status_code}: {response.reason}"
+        
+        logger.error(f"FHIR API error: {error_msg}")
+        raise FHIRError(error_msg)
+    
+    def _extract_epic_error_message(self, error_body: Dict[str, Any]) -> str:
+        """Extract meaningful error message from Epic response."""
+        # Epic FHIR OperationOutcome format
+        if error_body.get('resourceType') == 'OperationOutcome':
+            issues = error_body.get('issue', [])
+            if issues:
+                return issues[0].get('details', {}).get('text', 'Unknown Epic error')
+        
+        # OAuth error format
+        if 'error' in error_body:
+            error_msg = error_body['error']
+            if 'error_description' in error_body:
+                error_msg += f": {error_body['error_description']}"
+            return error_msg
+        
+        return str(error_body)
 
 
 # Convenience functions for common operations
-def create_fhir_client(base_url: str, timeout: int = 30) -> FHIRClient:
-    """
-    Create and return a configured FHIR client.
-    
-    Args:
-        base_url: Epic FHIR server base URL
-        timeout: Request timeout in seconds
-        
-    Returns:
-        Configured FHIRClient instance
-    """
-    return FHIRClient(base_url, timeout)
+def create_fhir_client(base_url: str) -> FHIRClient:
+    """Create FHIR client instance."""
+    return FHIRClient(base_url)
 
 
 def search_patients_by_identifier(
@@ -395,76 +266,22 @@ def search_patients_by_identifier(
     token: str,
     epic_user_id: Optional[str] = None
 ) -> List[Dict[str, Any]]:
-    """
-    Search for patients by identifier (MRN, EPI, etc.).
-    
-    Args:
-        client: FHIR client instance
-        identifier_system: Identifier system (e.g., 'MRN', 'EPI')
-        identifier_value: Identifier value
-        token: OAuth2 access token
-        epic_user_id: Epic user ID for audit logging
-        
-    Returns:
-        List of matching Patient resources
-    """
+    """Search patients by identifier (MRN, EPI, etc.)."""
     search_params = {
         'identifier': f'{identifier_system}|{identifier_value}'
     }
-    
-    return client.search_patients(search_params, token, epic_user_id)
-
-
-def search_patients_by_name(
-    client: FHIRClient,
-    family_name: Optional[str] = None,
-    given_name: Optional[str] = None,
-    token: str = None,
-    epic_user_id: Optional[str] = None
-) -> List[Dict[str, Any]]:
-    """
-    Search for patients by name components.
-    
-    Args:
-        client: FHIR client instance
-        family_name: Patient's family/last name
-        given_name: Patient's given/first name
-        token: OAuth2 access token
-        epic_user_id: Epic user ID for audit logging
-        
-    Returns:
-        List of matching Patient resources
-    """
-    search_params = {}
-    
-    if family_name:
-        search_params['family'] = family_name
-    if given_name:
-        search_params['given'] = given_name
-    
-    if not search_params:
-        raise InvalidSearchParametersError({})
-    
     return client.search_patients(search_params, token, epic_user_id)
 
 
 def extract_patient_identifiers(patient: Dict[str, Any]) -> Dict[str, str]:
-    """
-    Extract common patient identifiers from Patient resource.
-    
-    Args:
-        patient: Patient FHIR resource
-        
-    Returns:
-        Dictionary of extracted identifiers
-    """
+    """Extract common patient identifiers."""
     identifiers = {}
     
-    # Extract FHIR ID
+    # FHIR ID
     if patient.get('id'):
         identifiers['fhir_id'] = patient['id']
     
-    # Extract identifiers from identifier array
+    # Extract from identifier array
     for identifier in patient.get('identifier', []):
         system = identifier.get('system', '')
         value = identifier.get('value', '')
@@ -475,7 +292,7 @@ def extract_patient_identifiers(patient: Dict[str, Any]) -> Dict[str, str]:
         # Epic MRN
         if 'urn:oid:1.2.840.114350.1.13.0.1.7.5.737384.14' in system:
             identifiers['mrn'] = value
-        # Epic EPI
+        # Epic EPI  
         elif 'http://open.epic.com/FHIR/StructureDefinition/patient-fhir-id' in system:
             identifiers['epi'] = value
         # SSN
@@ -486,58 +303,32 @@ def extract_patient_identifiers(patient: Dict[str, Any]) -> Dict[str, str]:
 
 
 def extract_patient_demographics(patient: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Extract demographic information from Patient resource.
-    
-    Args:
-        patient: Patient FHIR resource
-        
-    Returns:
-        Dictionary of demographic data
-    """
+    """Extract basic demographic information."""
     demographics = {}
     
-    # Extract name
+    # Name
     names = patient.get('name', [])
     if names:
-        primary_name = names[0]  # Use first name entry
+        primary_name = names[0]
         demographics['family_name'] = primary_name.get('family')
         demographics['given_names'] = primary_name.get('given', [])
         demographics['full_name'] = ' '.join(
             demographics['given_names'] + [demographics['family_name']]
         ).strip()
     
-    # Extract basic demographics
+    # Basic demographics
     demographics['gender'] = patient.get('gender')
     demographics['birth_date'] = patient.get('birthDate')
     
-    # Extract address
+    # Address (first address only)
     addresses = patient.get('address', [])
     if addresses:
-        primary_address = addresses[0]
+        addr = addresses[0]
         demographics['address'] = {
-            'line': primary_address.get('line', []),
-            'city': primary_address.get('city'),
-            'state': primary_address.get('state'),
-            'postal_code': primary_address.get('postalCode'),
-            'country': primary_address.get('country')
+            'line': addr.get('line', []),
+            'city': addr.get('city'),
+            'state': addr.get('state'),
+            'postal_code': addr.get('postalCode')
         }
-    
-    # Extract telecom
-    telecoms = patient.get('telecom', [])
-    demographics['phone_numbers'] = []
-    demographics['email_addresses'] = []
-    
-    for telecom in telecoms:
-        if telecom.get('system') == 'phone':
-            demographics['phone_numbers'].append({
-                'value': telecom.get('value'),
-                'use': telecom.get('use')
-            })
-        elif telecom.get('system') == 'email':
-            demographics['email_addresses'].append({
-                'value': telecom.get('value'),
-                'use': telecom.get('use')
-            })
     
     return demographics
