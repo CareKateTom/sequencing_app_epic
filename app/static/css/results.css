@@ -1,0 +1,70 @@
+/* Risk variable styles */
+.high-row-risk {
+    color: #ff0000 !important; /* Bold red for risk variables first appearing in rows 26+ */
+    font-weight: bold;
+}
+
+.first-occurrence {
+    color: #09457b !important; /* Blue and bold for first occurrence of risk variables in rows 1-25 */
+    font-weight: bold;
+}
+
+.duplicate-risk {
+    color: #6c757d !important; /* Gray for duplicate risk variables */
+}
+
+.not-poa {
+    color: #fd7e14 !important; /* Orange for Not Present on Admission */
+}
+
+.text-secondary {
+    color: #6c757d !important; /* Gray for risk variables that didn't appear */
+}
+
+/* Tab styles */
+.nav-tabs {
+    border-bottom: 1px solid #dee2e6;
+}
+
+.nav-tabs .nav-item {
+    margin-bottom: -1px;
+}
+
+.nav-tabs .nav-link {
+    border: 1px solid transparent;
+    border-top-left-radius: 0.25rem;
+    border-top-right-radius: 0.25rem;
+    color: #fff;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    background-color: #8a8a8a; /* Medium gray background for inactive tabs */
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.nav-tabs .nav-link:hover {
+    border-color: #e9ecef #e9ecef #dee2e6;
+    background-color: #7a7a7a; /* Slightly darker on hover */
+}
+
+.nav-tabs .nav-link.active {
+    color: #fff;
+    background-color: #09457b; /* Company blue for active tab */
+    border-color: #09457b;
+    font-weight: bold;
+}
+
+.tab-content {
+    padding: 1rem 0;
+    border-left: 1px solid #dee2e6;
+    border-right: 1px solid #dee2e6;
+    border-bottom: 1px solid #dee2e6;
+    padding: 1rem;
+}
+
+.tab-pane {
+    display: none;
+}
+
+.tab-pane.active {
+    display: block;
+}

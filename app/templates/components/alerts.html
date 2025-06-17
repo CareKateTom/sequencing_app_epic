@@ -1,0 +1,213 @@
+<!-- Flash Messages -->
+{% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+        {% for category, message in messages %}
+            <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} alert-dismissible fade show">
+                {{ message }}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        {% endfor %}
+    {% endif %}
+{% endwith %}
+
+<!-- Risk Variable Warning Component -->
+{% macro risk_variable_warning(patient) %}
+    {% if patient.get_high_row_risk_variable_count() > 0 %}
+    <div class="warning danger">
+        <strong>Warning:</strong> The following risk variables first appear in row 26 or higher, which may not be counted:
+        <ul class="text-left mt-2">
+            {% for risk_var in patient.risk_variables_summary %}
+                {% if risk_var.found and risk_var.row >= 26 %}
+                    <li>{{ risk_var.name }} (Row {{ risk_var.row }})</li>
+                {% endif %}
+            {% endfor %}
+        </ul>
+        <p class="mt-2 mb-0">For optimal processing, ensure important risk variables appear in rows 1-25.</p>
+    </div>
+    {% endif %}
+{% endmacro %}
+
+<!-- POA Status Warning Component -->
+{% macro poa_status_warning(patient) %}
+    {% if patient.risk_poa_issues %}
+    <div class="warning">
+        <strong>Warning:</strong> The following risk variables are not present on admission (POA status N or U):
+        <ul class="text-left mt-2">
+            {% for issue in patient.risk_poa_issues %}
+                <li>Row {{ issue.row }}: {{ issue.code }} - {{ issue.risk_variable }} (Needs to be Present on Admission)</li>
+            {% endfor %}
+        </ul>
+        <p class="mt-2 mb-0">For risk variables to count, they need to have a POA status of Y, E, or W.</p>
+    </div>
+    {% endif %}
+{% endmacro %}
+
+<!-- Summary Card Component -->
+{% macro summary_card(patient) %}
+<div class="summary-card mb-3">
+    <div class="summary-header">
+        <h4 class="mb-0">Heart Failure Risk Summary</h4>
+    </div>
+    <div class="summary-body">
+        <div class="row">
+            <div class="col-md-4">
+                <p>Heart Failure Cohort Status: 
+                    <span class="summary-stat {% if patient.qualifies_for_hf_cohort %}text-success{% else %}text-danger{% endif %}">
+                        {{ "Qualified" if patient.qualifies_for_hf_cohort else "Not Qualified" }}
+                    </span>
+                </p>
+            </div>
+            <div class="col-md-4">
+                <p>Risk Variables Found: 
+                    <span class="summary-stat">
+                        {{ patient.get_found_risk_variable_count() }}
+                    </span>
+                </p>
+            </div>
+            <div class="col-md-4">
+                <p>Risk Variables in Rows 26+: 
+                    <span class="summary-stat {% if patient.get_high_row_risk_variable_count() > 0 %}text-danger{% endif %}">
+                        {{ patient.get_high_row_risk_variable_count() }}
+                    </span>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endmacro %}
+
+<!-- Diagnosis Table Component -->
+{% macro diagnosis_table(patient) %}
+<div class="table-responsive">
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th style="width: 8%;">Seq. #</th>
+                <th style="width: 12%;">ICD-10</th>
+                <th style="width: 10%;">POA Status</th>
+                <th style="width: 8%;">MCC/CC</th>
+                <th style="width: 45%;">Comorbidity Risk Variable</th>
+                <th style="width: 17%;">Models</th>  <!-- Increased from 12% to 17% to accommodate longer model strings -->
+            </tr>
+        </thead>
+        <tbody>
+            {% for dx in patient.diagnoses %}
+                <tr>
+                    <td>{{ dx.sequence_number }}</td>
+                    <td>{{ dx.icd_code }}</td>
+                    <td>{{ dx.poa_status }}</td>
+                    <td>
+                        {% if dx.mcc_cc_status == 'MCC' %}
+                            <span style="color: #dc3545; font-weight: bold;">{{ dx.mcc_cc_status }}</span>
+                        {% elif dx.mcc_cc_status == 'CC' %}
+                            <span style="color: #fd7e14; font-weight: bold;">{{ dx.mcc_cc_status }}</span>
+                        {% elif dx.mcc_cc_status == 'HAC' %}
+                            <span style="color: #6f42c1; font-weight: bold;">{{ dx.mcc_cc_status }}</span>
+                        {% else %}
+                            {{ dx.mcc_cc_status }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if dx.comorbidity_risk_variable %}
+                            {% if '(Not Present on Admission)' in dx.comorbidity_risk_variable %}
+                                {% set base_risk_var = dx.comorbidity_risk_variable.split(' (Not Present on Admission)')[0] %}
+                                <span class="not-poa">(Not Present on Admission) {{ base_risk_var }}</span>
+                            {% elif dx.is_duplicate %}
+                                <span class="duplicate-risk">(Duplicate) {{ dx.comorbidity_risk_variable }}</span>
+                            {% elif dx.comorbidity_risk_variable and dx.sequence_number >= 26 and dx.first_occurrence_row >= 26 %}
+                                <span class="high-row-risk">(Row 26+) {{ dx.comorbidity_risk_variable }}</span>
+                            {% elif dx.comorbidity_risk_variable %}
+                                <span class="first-occurrence">{{ dx.comorbidity_risk_variable }}</span>
+                            {% else %}
+                                {{ dx.comorbidity_risk_variable }}
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if dx.models %}
+                            {% if dx.comorbidity_risk_variable %}
+                                {% if '(Not Present on Admission)' in dx.comorbidity_risk_variable %}
+                                    <span class="not-poa">{{ dx.models }}</span>
+                                {% elif dx.is_duplicate %}
+                                    <span class="duplicate-risk">{{ dx.models }}</span>
+                                {% elif dx.sequence_number >= 26 and dx.first_occurrence_row >= 26 %}
+                                    <span class="high-row-risk">{{ dx.models }}</span>
+                                {% else %}
+                                    <span class="first-occurrence">{{ dx.models }}</span>
+                                {% endif %}
+                            {% else %}
+                                {{ dx.models }}
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Legend for MCC/CC/HAC colors -->
+<div class="mt-2">
+    <small class="text-muted">
+        <strong>Legend:</strong> 
+        <span style="color: #dc3545; font-weight: bold;">MCC</span> = Major Complication/Comorbidity | 
+        <span style="color: #fd7e14; font-weight: bold;">CC</span> = Complication/Comorbidity | 
+        <span style="color: #6f42c1; font-weight: bold;">HAC</span> = Hospital Acquired Condition
+        <br>
+        <strong>Models:</strong> 
+        <strong>HWM</strong> = Hospital Wide Mortality | 
+        <strong>HWR</strong> = Hospital Wide Readmissions | 
+        <strong>M</strong> = HF 30-day Mortality | 
+        <strong>R</strong> = HF 30-day Readmissions
+    </small>
+</div>
+{% endmacro %}
+
+<!-- Risk Variables Summary Component -->
+{% macro risk_variables_summary(patient) %}
+<div class="table-responsive">
+    <table class="table table-bordered">
+        <tbody>
+            {% for i in range(0, patient.risk_variables_summary|length, 2) %}
+                <tr>
+                    {% if i < patient.risk_variables_summary|length %}
+                        <td width="50%">
+                            {% set var = patient.risk_variables_summary[i] %}
+                            {% if var.found and var.row > 0 %}
+                                {% if var.row >= 26 %}
+                                    <span class="high-row-risk">{{ var.clean_name }} (Row {{ var.row }})</span>
+                                {% else %}
+                                    <span class="first-occurrence">{{ var.clean_name }} (Row {{ var.row }})</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-secondary">{{ var.clean_name }}</span>
+                            {% endif %}
+                        </td>
+                    {% else %}
+                        <td width="50%"></td>
+                    {% endif %}
+                    
+                    {% if i+1 < patient.risk_variables_summary|length %}
+                        <td width="50%">
+                            {% set var = patient.risk_variables_summary[i+1] %}
+                            {% if var.found and var.row > 0 %}
+                                {% if var.row >= 26 %}
+                                    <span class="high-row-risk">{{ var.clean_name }} (Row {{ var.row }})</span>
+                                {% else %}
+                                    <span class="first-occurrence">{{ var.clean_name }} (Row {{ var.row }})</span>
+                                {% endif %}
+                            {% else %}
+                                <span class="text-secondary">{{ var.clean_name }}</span>
+                            {% endif %}
+                        </td>
+                    {% else %}
+                        <td width="50%"></td>
+                    {% endif %}
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endmacro %}
