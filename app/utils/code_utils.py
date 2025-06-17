@@ -3,7 +3,7 @@ from typing import Optional
 
 def clean_icd_code(code: Optional[str]) -> str:
     """
-    Remove any decimal points from ICD-10 codes.
+    Remove any decimal points from ICD-10 codes for consistent matching.
     Example: 'I50.1' -> 'I501'
     
     Args:
@@ -36,3 +36,24 @@ def strip_cc_suffix(risk_var: str) -> str:
             return risk_var[:pattern_index]
     # Return the original string if no pattern is found
     return risk_var
+
+def normalize_icd_code(code: Optional[str]) -> str:
+    """
+    Normalize ICD-10 code for consistent comparison.
+    Removes decimals, converts to uppercase, strips whitespace.
+    
+    Args:
+        code: Raw ICD-10 code
+        
+    Returns:
+        Normalized code for comparison
+    """
+    if not code:
+        return ''
+    
+    # Clean the code and convert to uppercase
+    cleaned = clean_icd_code(code).upper()
+    return cleaned
+
+# Removed category and formatting functions - not needed for HF analysis
+# The HF analysis uses exact code matching against reference lists
