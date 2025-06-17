@@ -2,7 +2,7 @@
 HL7 routes for Epic FHIR Integration application.
 
 Healthcare-focused HL7 endpoints prioritizing security, compliance, and auditability.
-Handles Epic bidirectional coding interface messaging.
+Handles Epic bidirectional coding interface messaging with Heart Failure analysis.
 """
 
 from flask import Blueprint, request, session, render_template, jsonify, redirect, url_for, g
@@ -12,6 +12,9 @@ from app.core.exceptions import HL7Error, HL7ParseError, AuthenticationError
 from app.core.logging import get_logger, log_security_event, create_audit_log, log_epic_event
 from app.auth.decorators import require_valid_token, require_epic_endpoint
 from app.hl7.parser import EpicHL7Parser, parse_hl7_message, validate_hl7_message
+from app.models.patient import Patient, Diagnosis
+from app.services.analysis_service import AnalysisService
+from app.services.reference_service import ReferenceService
 import requests
 
 logger = get_logger(__name__)
@@ -43,15 +46,16 @@ def create_hl7_blueprint() -> Blueprint:
 @require_epic_endpoint('getMessage')
 def test_get_message(token: Dict[str, Any]):
     """
-    Test the Epic GetEncoderMessage endpoint with parsing.
+    Test the Epic GetEncoderMessage endpoint with Heart Failure parsing.
     
-    Retrieves HL7 messages from Epic's bidirectional coding interface.
+    Retrieves HL7 messages from Epic's bidirectional coding interface and
+    performs Heart Failure risk analysis.
     
     Args:
         token: OAuth2 token from decorator
         
     Returns:
-        Rendered HL7 message analysis page or JSON response
+        Rendered HL7 message analysis page with HF analysis or JSON response
     """
     try:
         # Get getMessage URL from request context (set by decorator)
@@ -88,6 +92,22 @@ def test_get_message(token: Dict[str, Any]):
             try:
                 parsed_data = parse_hl7_message(hl7_message)
                 
+                # NEW: Convert to Patient object and run HF analysis
+                patient = _create_patient_from_parsed_hl7(parsed_data)
+                if patient.diagnoses:  # Only analyze if we have diagnoses
+                    analysis_service = AnalysisService(ReferenceService())
+                    analysis_service.analyze_patient(patient)
+                    
+                    # Show HF analysis results instead of raw HL7
+                    return render_template(
+                        'hl7/hf_analysis.html',
+                        patient=patient,
+                        hl7_message=hl7_message,
+                        raw_response=message_data,
+                        parsed_data=parsed_data
+                    )
+                
+                # Fallback to original parsing display if no diagnoses
                 # Get PSI-ready data
                 parser = EpicHL7Parser()
                 psi_data = parser.get_psi_ready_dataframes(parsed_data)
@@ -192,6 +212,34 @@ def test_get_message(token: Dict[str, Any]):
             error_message='An unexpected error occurred while retrieving the HL7 message',
             error_code=500
         ), 500
+
+
+def _create_patient_from_parsed_hl7(parsed_data: Dict[str, Any]) -> Patient:
+    """
+    Convert parsed HL7 to Patient object for Heart Failure analysis.
+    
+    Args:
+        parsed_data: Parsed HL7 message data from EpicHL7Parser
+        
+    Returns:
+        Patient object with diagnoses ready for HF analysis
+    """
+    # Create patient with basic info (no PHI in logs)
+    patient = Patient(
+        patient_id=parsed_data.get('patient', {}).get('patient_id', 'hl7_patient'),
+        name=""  # No PHI
+    )
+    
+    # Convert diagnoses to our format
+    for i, dx in enumerate(parsed_data.get('diagnoses', []), 1):
+        diagnosis = Diagnosis(
+            sequence_number=i,
+            icd_code=dx.get('diagnosis_code', ''),
+            poa_status=dx.get('poa_indicator', '')
+        )
+        patient.add_diagnosis(diagnosis)
+    
+    return patient
 
 
 @require_valid_token
@@ -376,12 +424,12 @@ PR1|1||0JT70ZZ^Resection of Right Knee Joint, Open Approach^ICD10PCS|||20241202|
 
 def test_parser():
     """
-    Standalone HL7 parser testing page.
+    Standalone HL7 parser testing page with Heart Failure analysis.
     
-    Allows testing HL7 parsing without Epic connectivity.
+    Allows testing HL7 parsing and HF analysis without Epic connectivity.
     
     Returns:
-        Rendered parser test page
+        Rendered parser test page with HF analysis results
     """
     if request.method == 'POST':
         hl7_message = request.form.get('hl7_message', '')
@@ -390,6 +438,15 @@ def test_parser():
             try:
                 # Parse the message
                 parsed_data = parse_hl7_message(hl7_message)
+                
+                # NEW: Convert to Patient object and run HF analysis
+                patient = _create_patient_from_parsed_hl7(parsed_data)
+                hf_analysis_performed = False
+                
+                if patient.diagnoses:  # Only analyze if we have diagnoses
+                    analysis_service = AnalysisService(ReferenceService())
+                    analysis_service.analyze_patient(patient)
+                    hf_analysis_performed = True
                 
                 # Get PSI data
                 parser = EpicHL7Parser()
@@ -404,17 +461,23 @@ def test_parser():
                     {
                         'message_length': len(hl7_message),
                         'diagnoses_count': len(parsed_data.get('diagnoses', [])),
-                        'procedures_count': len(parsed_data.get('procedures', []))
+                        'procedures_count': len(parsed_data.get('procedures', [])),
+                        'hf_analysis_performed': hf_analysis_performed
                     }
                 )
                 
-                logger.info("HL7 message parsed successfully in standalone mode")
+                logger.info("HL7 message parsed successfully in standalone mode with HF analysis")
                 
                 if request.is_json:
                     return jsonify({
                         'success': True,
                         'parsed_data': parsed_data,
-                        'psi_data': psi_data
+                        'psi_data': psi_data,
+                        'hf_analysis': {
+                            'performed': hf_analysis_performed,
+                            'qualifies_for_hf_cohort': patient.qualifies_for_hf_cohort if hf_analysis_performed else None,
+                            'found_risk_variables': patient.get_found_risk_variable_count() if hf_analysis_performed else None
+                        }
                     })
                 
                 return render_template(
@@ -423,6 +486,8 @@ def test_parser():
                     segments=segments,
                     parsed_data=parsed_data,
                     psi_data=psi_data,
+                    patient=patient if hf_analysis_performed else None,
+                    hf_analysis_performed=hf_analysis_performed,
                     tested=True
                 )
                 
@@ -446,7 +511,7 @@ def test_parser():
     sample_message = """MSH|^~\\&|EPIC|HOSPITAL|ENCODER|VENDOR|20241205143022||ADT^A08^ADT_A08|12345|P|2.5.1
 PID|||123456789^^^MR^EPIC~987654321^^^SSN||DOE^JOHN^MICHAEL||19801215|M||2076-8^NATIVE HAWAIIAN OR OTHER PACIFIC ISLANDER^HL70005|123 MAIN ST^^CHICAGO^IL^60601^USA^^^COOK||||M||12345678|123-45-6789
 PV1||I|ICU^101^A|E|||1234^SMITH^JANE^M|||SUR||||A|||5678^JONES^ROBERT^L|||987654321|||||||||||||||||||||20241201120000|20241205143000
-DG1|1||I21.9^Acute myocardial infarction, unspecified^ICD10||20241201|F||||||||||||||||||||Y|N
+DG1|1||I50.9^Heart failure, unspecified^ICD10||20241201|F||||||||||||||||||||Y|N
 DG1|2||E11.9^Type 2 diabetes mellitus without complications^ICD10||20241201|F||||||||||||||||||||Y|N
 DG1|3||N18.6^End stage renal disease^ICD10||20241201|F||||||||||||||||||||N|Y
 PR1|1||0JT70ZZ^Resection of Right Knee Joint, Open Approach^ICD10PCS|||20241202||||1234^SMITH^JANE^M
@@ -504,12 +569,12 @@ def message_menu(token: Dict[str, Any]):
 
 def api_parse_hl7():
     """
-    API endpoint for parsing HL7 messages (returns JSON).
+    API endpoint for parsing HL7 messages with Heart Failure analysis (returns JSON).
     
-    Accepts HL7 message in request body and returns parsed data.
+    Accepts HL7 message in request body and returns parsed data with HF analysis.
     
     Returns:
-        JSON response with parsed HL7 data
+        JSON response with parsed HL7 data and HF analysis results
     """
     try:
         data = request.get_json()
@@ -521,6 +586,27 @@ def api_parse_hl7():
         # Parse the message
         parsed_data = parse_hl7_message(hl7_message)
         
+        # Convert to Patient object and run HF analysis
+        patient = _create_patient_from_parsed_hl7(parsed_data)
+        hf_analysis_performed = False
+        hf_results = {}
+        
+        if patient.diagnoses:  # Only analyze if we have diagnoses
+            analysis_service = AnalysisService(ReferenceService())
+            analysis_service.analyze_patient(patient)
+            hf_analysis_performed = True
+            
+            # Prepare HF analysis results for JSON response
+            hf_results = {
+                'qualifies_for_hf_cohort': patient.qualifies_for_hf_cohort,
+                'has_exclusion': patient.has_exclusion,
+                'exclusion_details': patient.exclusion_details,
+                'risk_poa_issues': patient.risk_poa_issues,
+                'found_risk_variable_count': patient.get_found_risk_variable_count(),
+                'high_row_risk_variable_count': patient.get_high_row_risk_variable_count(),
+                'risk_variables_summary': patient.risk_variables_summary
+            }
+        
         # Get PSI data
         parser = EpicHL7Parser()
         psi_data = parser.get_psi_ready_dataframes(parsed_data)
@@ -531,7 +617,8 @@ def api_parse_hl7():
             {
                 'message_length': len(hl7_message),
                 'remote_addr': request.remote_addr,
-                'user_agent': request.headers.get('User-Agent')
+                'user_agent': request.headers.get('User-Agent'),
+                'hf_analysis_performed': hf_analysis_performed
             }
         )
         
@@ -539,7 +626,11 @@ def api_parse_hl7():
             'success': True,
             'parsed_data': parsed_data,
             'psi_data': psi_data,
-            'message': 'HL7 message parsed successfully'
+            'hf_analysis': {
+                'performed': hf_analysis_performed,
+                'results': hf_results
+            },
+            'message': 'HL7 message parsed successfully with Heart Failure analysis'
         })
         
     except HL7ParseError as e:

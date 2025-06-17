@@ -56,6 +56,9 @@ class Config:
         self.SESSION_TIMEOUT_HOURS = self._get_int('SESSION_TIMEOUT_HOURS', 8)
         self.AUDIT_LOG_LEVEL = os.getenv('AUDIT_LOG_LEVEL', 'INFO').upper()
         
+        # NEW: Heart Failure Analysis Configuration
+        self.REFERENCE_DIR = os.getenv('REFERENCE_DIR', 'reference_files')
+        
         # Optional Settings
         self.DATABASE_URL = os.getenv('DATABASE_URL')
         self.REDIS_URL = os.getenv('REDIS_URL')
@@ -101,6 +104,15 @@ class Config:
         # Validate port
         if not (1 <= self.PORT <= 65535):
             raise ConfigError(f"PORT must be between 1 and 65535: {self.PORT}")
+        
+        # NEW: Validate reference directory
+        reference_path = Path(self.REFERENCE_DIR)
+        if not reference_path.exists():
+            # Create the directory if it doesn't exist
+            try:
+                reference_path.mkdir(parents=True, exist_ok=True)
+            except Exception as e:
+                raise ConfigError(f"Could not create reference directory {self.REFERENCE_DIR}: {e}")
     
     def _validate_security(self):
         """Validate security requirements for healthcare."""
@@ -172,7 +184,7 @@ class Config:
         """Safe representation (excludes sensitive data)."""
         safe_attrs = [
             'FLASK_ENV', 'HOST', 'PORT', 'LOG_LEVEL', 
-            'SESSION_TIMEOUT_HOURS', 'AUDIT_LOG_LEVEL'
+            'SESSION_TIMEOUT_HOURS', 'AUDIT_LOG_LEVEL', 'REFERENCE_DIR'
         ]
         attrs = [f"{attr}={getattr(self, attr)!r}" for attr in safe_attrs]
         return f"<Config({', '.join(attrs)})>"
