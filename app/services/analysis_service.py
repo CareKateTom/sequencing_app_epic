@@ -4,15 +4,15 @@ from app.services.reference_service import ReferenceService
 from app.utils.code_utils import clean_icd_code, strip_cc_suffix
 
 class AnalysisService:
-    """Service for analyzing patient diagnoses"""
+    """Service for analyzing patient diagnoses for Heart Failure risk assessment"""
     
     def __init__(self, reference_service: ReferenceService):
-        """Initialize with reference data"""
+        """Initialize with reference data service"""
         self.reference_service = reference_service
     
     def analyze_patient(self, patient: Patient) -> None:
         """
-        Analyze a patient's diagnoses and update the patient object with results
+        Analyze a patient's diagnoses and update the patient object with Heart Failure results
         
         Args:
             patient: The patient to analyze
@@ -36,12 +36,12 @@ class AnalysisService:
             patient.qualifies_for_hf_cohort = False
             return
         
-        # Primary diagnosis POA must be Y or E
+        # Primary diagnosis POA must be Y or E for Heart Failure qualification
         if primary_dx.poa_status not in ['Y', 'E']:
             patient.qualifies_for_hf_cohort = False
             return
         
-        # Primary diagnosis must be a qualifying heart failure code
+        # Primary diagnosis must be a qualifying Heart Failure code
         qualifies_for_hf_cohort = self._is_qualifying_diagnosis(primary_dx.icd_code)
         
         # Check for exclusion codes with POA=Y
@@ -50,7 +50,7 @@ class AnalysisService:
         
         for dx in patient.diagnoses:
             if not dx.is_primary:
-                # Check for exclusion codes with POA=Y
+                # Check for exclusion codes with POA=Y (present on admission)
                 if self._is_exclusion_diagnosis(dx.icd_code) and dx.poa_status in ['Y', 'E', 'W']:
                     has_exclusion = True
                     exclusion_details.append({
@@ -71,7 +71,7 @@ class AnalysisService:
     
     def _calculate_comorbidity_risk(self, dx: Diagnosis) -> None:
         """
-        Calculate comorbidity risk for a diagnosis with updated 2025 POA logic
+        Calculate Heart Failure comorbidity risk for a diagnosis with 2025 POA logic
         
         Args:
             dx: The diagnosis to analyze
@@ -97,7 +97,7 @@ class AnalysisService:
             dx.models = ""
             return
         
-        # NEW 2025 LOGIC: Check if POA is required for this risk variable
+        # 2025 LOGIC: Check if POA is required for this risk variable
         poa_required = risk_info.get("poa_required", "Y")  # Default to Y if not specified
         
         if poa_required == "N":
@@ -115,6 +115,7 @@ class AnalysisService:
                 dx.comorbidity_risk_variable = f"{risk_info['risk_variable']} (Not Present on Admission)"
                 dx.models = risk_info["models"]
             else:
+                # Invalid or empty POA status
                 dx.comorbidity_risk_variable = ""
                 dx.models = ""
     
@@ -144,7 +145,7 @@ class AnalysisService:
             dx.mcc_cc_status = ""
             return
         
-        # Now apply the new logic based on POA status
+        # Apply the logic based on POA status
         if dx.poa_status in ['Y', 'W']:
             # POA = Y or W: assign MCC/CC as normal
             if is_mcc:
@@ -166,21 +167,21 @@ class AnalysisService:
             dx.mcc_cc_status = ""
     
     def _is_qualifying_diagnosis(self, icd_code: str) -> bool:
-        """Check if the given ICD-10 code qualifies for heart failure cohort"""
+        """Check if the given ICD-10 code qualifies for Heart Failure cohort"""
         return self.reference_service.is_qualifying_diagnosis(icd_code)
     
     def _is_exclusion_diagnosis(self, icd_code: str) -> bool:
-        """Check if the given ICD-10 code is in the exclusion list"""
+        """Check if the given ICD-10 code is in the Heart Failure exclusion list"""
         return self.reference_service.is_exclusion_diagnosis(icd_code)
     
     def _process_risk_variables(self, patient: Patient) -> None:
         """
-        Process risk variables for a patient and create summary
+        Process Heart Failure risk variables for a patient and create summary
         
         Args:
             patient: The patient to process
         """
-        # Get all possible risk variables
+        # Get all possible Heart Failure risk variables
         all_possible_vars = self.reference_service.get_all_risk_variables()
         
         # Initialize tracking dictionaries
@@ -247,8 +248,10 @@ class AnalysisService:
     
     def _generate_smart_poa_issues(self, patient: Patient) -> List[Dict]:
         """
-        Generate POA issues that are truly problematic - only show risk variables
-        that are POA=N/U AND don't have the same risk variable with POA=Y/E/W in rows 1-25
+        Generate POA issues that are truly problematic for Heart Failure analysis.
+        
+        Only show risk variables that are POA=N/U AND don't have the same risk variable 
+        with POA=Y/E/W in rows 1-25
         
         Args:
             patient: The patient to analyze
@@ -286,3 +289,81 @@ class AnalysisService:
                     })
         
         return poa_issues
+    
+    def get_analysis_summary(self, patient: Patient) -> Dict:
+        """
+        Get a comprehensive summary of the Heart Failure analysis for a patient
+        
+        Args:
+            patient: The analyzed patient
+            
+        Returns:
+            Dictionary with analysis summary
+        """
+        return {
+            'patient_id': patient.patient_id,
+            'analysis_type': 'Heart Failure Risk Assessment',
+            'total_diagnoses': len(patient.diagnoses),
+            'primary_diagnosis': {
+                'code': patient.get_primary_diagnosis().icd_code if patient.get_primary_diagnosis() else '',
+                'poa_status': patient.get_primary_diagnosis().poa_status if patient.get_primary_diagnosis() else '',
+                'qualifies_for_hf': self._is_qualifying_diagnosis(patient.get_primary_diagnosis().icd_code) if patient.get_primary_diagnosis() else False
+            },
+            'cohort_qualification': {
+                'qualifies_for_hf_cohort': patient.qualifies_for_hf_cohort,
+                'has_exclusion': patient.has_exclusion,
+                'exclusion_count': len(patient.exclusion_details)
+            },
+            'risk_variables': {
+                'total_found': patient.get_found_risk_variable_count(),
+                'high_row_count': patient.get_high_row_risk_variable_count(),
+                'poa_issues': len(patient.risk_poa_issues)
+            },
+            'comorbidity_status': {
+                'mcc_count': len(patient.get_mcc_diagnoses()),
+                'cc_count': len(patient.get_cc_diagnoses()),
+                'hac_count': len(patient.get_hac_diagnoses()),
+                'duplicate_risk_variables': len(patient.get_duplicate_risk_variables())
+            },
+            'data_quality': {
+                'diagnoses_with_poa': len([dx for dx in patient.diagnoses if dx.poa_status]),
+                'diagnoses_with_risk_vars': len(patient.get_diagnoses_with_risk_variables()),
+                'secondary_diagnoses': len(patient.get_secondary_diagnoses())
+            }
+        }
+    
+    def validate_patient_data(self, patient: Patient) -> List[str]:
+        """
+        Validate patient data for Heart Failure analysis
+        
+        Args:
+            patient: The patient to validate
+            
+        Returns:
+            List of validation warnings/issues
+        """
+        issues = []
+        
+        if not patient.diagnoses:
+            issues.append("No diagnoses found for patient")
+            return issues
+        
+        primary_dx = patient.get_primary_diagnosis()
+        if not primary_dx:
+            issues.append("No primary diagnosis found (sequence 1)")
+        
+        # Check for missing POA indicators
+        missing_poa = [dx for dx in patient.diagnoses if not dx.poa_status]
+        if missing_poa:
+            issues.append(f"{len(missing_poa)} diagnoses missing POA status")
+        
+        # Check for empty diagnosis codes
+        empty_codes = [dx for dx in patient.diagnoses if not dx.icd_code]
+        if empty_codes:
+            issues.append(f"{len(empty_codes)} diagnoses have empty ICD codes")
+        
+        # Check if primary diagnosis POA status is appropriate for HF analysis
+        if primary_dx and primary_dx.poa_status not in ['Y', 'E']:
+            issues.append(f"Primary diagnosis POA status '{primary_dx.poa_status}' may not qualify for HF cohort")
+        
+        return issues
