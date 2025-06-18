@@ -10,81 +10,83 @@
 <!-- Import component macros -->
 {% from "components/alerts.html" import summary_card, risk_variable_warning, poa_status_warning, diagnosis_table, risk_variables_summary %}
 
-<!-- Summary Card Component -->
-{{ summary_card(patient) }}
+<div class="container mt-4">
+    <!-- Summary Card Component -->
+    {{ summary_card(patient) }}
 
-<!-- Warning Components -->
-{{ risk_variable_warning(patient) }}
-{{ poa_status_warning(patient) }}
+    <!-- Warning Components -->
+    {{ risk_variable_warning(patient) }}
+    {{ poa_status_warning(patient) }}
 
-<!-- Heart Failure Exclusion Warning -->
-{% if patient.has_exclusion %}
-<div class="alert alert-danger">
-    <strong>Heart Failure Exclusion:</strong> Patient has exclusion diagnoses present on admission:
-    <ul class="mt-2 mb-0">
-        {% for exclusion in patient.exclusion_details %}
-            <li>Row {{ exclusion.row }}: {{ exclusion.code }}</li>
-        {% endfor %}
-    </ul>
-</div>
-{% endif %}
-
-<div class="card">
-    <div class="card-header">
-        <h3>Heart Failure Analysis Results</h3>
-    </div>
-    <div class="card-body">
-        <!-- Nav tabs -->
-        <ul class="nav nav-tabs" id="resultTabs" role="tablist">
-            <li class="nav-item">
-                <a class="nav-link active" id="details-tab" data-toggle="tab" href="#details" role="tab" aria-controls="details" aria-selected="true">Line Item Detail</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" id="risk-tab" data-toggle="tab" href="#risk" role="tab" aria-controls="risk" aria-selected="false">Risk Variables Summary</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" id="hl7-tab" data-toggle="tab" href="#hl7" role="tab" aria-controls="hl7" aria-selected="false">Raw HL7 Message</a>
-            </li>
+    <!-- Heart Failure Exclusion Warning -->
+    {% if patient.has_exclusion %}
+    <div class="alert alert-danger">
+        <strong>Heart Failure Exclusion:</strong> Patient has exclusion diagnoses present on admission:
+        <ul class="mt-2 mb-0">
+            {% for exclusion in patient.exclusion_details %}
+                <li>Row {{ exclusion.row }}: {{ exclusion.code }}</li>
+            {% endfor %}
         </ul>
-        
-        <!-- Tab content -->
-        <div class="tab-content">
-            <!-- Details Tab -->
-            <div class="tab-pane fade show active" id="details" role="tabpanel" aria-labelledby="details-tab">
-                {{ diagnosis_table(patient) }}
-            </div>
+    </div>
+    {% endif %}
+
+    <div class="card">
+        <div class="card-header">
+            <h3>Heart Failure Analysis Results</h3>
+        </div>
+        <div class="card-body">
+            <!-- Nav tabs -->
+            <ul class="nav nav-tabs" id="resultTabs" role="tablist">
+                <li class="nav-item">
+                    <a class="nav-link active" id="details-tab" data-toggle="tab" href="#details" role="tab" aria-controls="details" aria-selected="true">Line Item Detail</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="risk-tab" data-toggle="tab" href="#risk" role="tab" aria-controls="risk" aria-selected="false">Risk Variables Summary</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="hl7-tab" data-toggle="tab" href="#hl7" role="tab" aria-controls="hl7" aria-selected="false">Raw HL7 Message</a>
+                </li>
+            </ul>
             
-            <!-- Risk Variables Tab -->
-            <div class="tab-pane fade" id="risk" role="tabpanel" aria-labelledby="risk-tab">
-                {{ risk_variables_summary(patient) }}
-            </div>
-            
-            <!-- Raw HL7 Message Tab -->
-            <div class="tab-pane fade" id="hl7" role="tabpanel" aria-labelledby="hl7-tab">
-                {% if hl7_message %}
-                    <div class="mt-3">
-                        <pre style="white-space: pre-wrap; font-family: monospace; font-size: 0.9rem; background-color: #f8f9fa; padding: 1rem; border-radius: 0.375rem; max-height: 500px; overflow-y: auto;">{{ hl7_message }}</pre>
-                    </div>
-                {% else %}
-                    <div class="mt-3">
-                        <p class="text-muted">No HL7 message available</p>
-                    </div>
-                {% endif %}
+            <!-- Tab content -->
+            <div class="tab-content">
+                <!-- Details Tab -->
+                <div class="tab-pane fade show active" id="details" role="tabpanel" aria-labelledby="details-tab">
+                    {{ diagnosis_table(patient) }}
+                </div>
+                
+                <!-- Risk Variables Tab -->
+                <div class="tab-pane fade" id="risk" role="tabpanel" aria-labelledby="risk-tab">
+                    {{ risk_variables_summary(patient) }}
+                </div>
+                
+                <!-- Raw HL7 Message Tab -->
+                <div class="tab-pane fade" id="hl7" role="tabpanel" aria-labelledby="hl7-tab">
+                    {% if hl7_message %}
+                        <div class="mt-3">
+                            <pre style="white-space: pre-wrap; font-family: monospace; font-size: 0.9rem; background-color: #f8f9fa; padding: 1rem; border-radius: 0.375rem; max-height: 500px; overflow-y: auto;">{{ hl7_message }}</pre>
+                        </div>
+                    {% else %}
+                        <div class="mt-3">
+                            <p class="text-muted">No HL7 message available</p>
+                        </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<div class="button-group mt-4 text-center">
-    <a href="{{ url_for('hl7.test_get_message') }}" class="btn btn-success">
-        <i class="fas fa-sync me-1"></i>Get New Message
-    </a>
-    <a href="{{ url_for('hl7.test_parser') }}" class="btn btn-primary">
-        <i class="fas fa-file-medical me-1"></i>Test Parser
-    </a>
-    <a href="{{ url_for('web.menu') }}" class="btn btn-outline-secondary">
-        <i class="fas fa-home me-1"></i>Back to Menu
-    </a>
+    <div class="button-group mt-4 text-center">
+        <a href="{{ url_for('hl7.test_get_message') }}" class="btn btn-success">
+            <i class="fas fa-sync me-1"></i>Get New Message
+        </a>
+        <a href="{{ url_for('hl7.test_parser') }}" class="btn btn-primary">
+            <i class="fas fa-file-medical me-1"></i>Test Parser
+        </a>
+        <a href="{{ url_for('web.menu') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-home me-1"></i>Back to Menu
+        </a>
+    </div>
 </div>
 {% endblock %}
 

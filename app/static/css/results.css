@@ -68,3 +68,72 @@
 .tab-pane.active {
     display: block;
 }
+
+/* Warning styles - THESE ARE THE KEY MISSING STYLES */
+.warning {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeeba;
+    margin: 10px 0;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.warning.danger {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+/* Summary card styles - ALSO MISSING */
+.summary-card {
+    border: 1px solid #dee2e6;
+    border-radius: 5px;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.summary-header {
+    background-color: #09457b;
+    color: white;
+    padding: 0.75rem 1rem;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+}
+
+.summary-body {
+    padding: 1rem;
+    background-color: #f8f9fa;
+}
+
+.summary-stat {
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+/* Container and layout improvements */
+.container {
+    padding-left: 15px;
+    padding-right: 15px;
+}
+
+/* Card improvements for better spacing */
+.card {
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.card-body {
+    padding: 1.5rem;
+}
+
+/* Table responsive improvements */
+.table-responsive {
+    margin-bottom: 1rem;
+}
+
+/* Button group spacing */
+.button-group {
+    margin: 1.5rem 0;
+    padding: 0 15px;
+}
