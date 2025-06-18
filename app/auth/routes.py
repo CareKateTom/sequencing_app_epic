@@ -35,6 +35,7 @@ from app.core.logging import get_logger, log_security_event, log_epic_event, log
 from app.core.secrets import get_secret_manager
 from app.auth.token_manager import get_token_manager, create_client_assertion, load_jwks
 from app.auth.decorators import require_valid_token, optional_authentication, get_current_user_info
+from app.core.exceptions import ConfigurationError
 
 
 logger = get_logger(__name__)
@@ -302,7 +303,9 @@ def callback():
             try:
                 secret_manager = get_secret_manager()
                 client_id_secret = current_app.config.get('EPIC_CLIENT_ID_SECRET')
-                epic_client_id = secret_manager.get_secret(client_id_secret)
+                if not client_id_secret:
+                    raise ConfigurationError("EPIC_CLIENT_ID_SECRET not configured")
+                epic_client_id = secret_manager.get_secret(str(client_id_secret))
                 
             except Exception as e:
                 logger.error(f"Failed to retrieve client credentials during callback: {e}")
@@ -393,8 +396,15 @@ def callback():
                 for key in ['oauth_state', 'requested_scopes']:
                     session.pop(key, None)
                 
-                # Redirect to HL7 workflow menu
-                return redirect(url_for('web.menu'))
+                # MODIFIED: Redirect directly to HL7 getMessage for immediate HF analysis
+                # Check if getMessage endpoint is available
+                if token.get('getMessage') or session.get('get_message_url'):
+                    logger.info("Redirecting directly to HL7 getMessage for Heart Failure analysis")
+                    return redirect(url_for('hl7.test_get_message'))
+                else:
+                    # Fallback to menu if no HL7 endpoints available
+                    logger.warning("No HL7 getMessage endpoint available, redirecting to menu")
+                    return redirect(url_for('web.menu'))
                 
             except Exception as e:
                 logger.error(f"Token validation/storage failed: {e}")
@@ -672,7 +682,9 @@ def debug_refresh_token():
         # Get required components for refresh
         secret_manager = get_secret_manager()
         client_id_secret = current_app.config.get('EPIC_CLIENT_ID_SECRET')
-        epic_client_id = secret_manager.get_secret(client_id_secret)
+        if not client_id_secret:
+            raise ConfigurationError("EPIC_CLIENT_ID_SECRET not configured")
+        epic_client_id = secret_manager.get_secret(str(client_id_secret))
         token_endpoint = session.get('metadata', {}).get('token')
         
         if not token_endpoint:

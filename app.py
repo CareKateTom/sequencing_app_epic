@@ -41,19 +41,16 @@ def main():
                 logger.error(f"Failed to load JWKS: {e}")
                 return {'error': 'JWKS unavailable'}, 500
         
-        # Get configuration
+        # Get configuration from Flask's config (already loaded in create_app)
         config = app.config
-        
-        # Determine SSL context
+
+        # Determine SSL context - check if certificate files exist
+        cert_path = config.get('SSL_CERT_PATH', 'certs/cert.pem')
+        key_path = config.get('SSL_KEY_PATH', 'certs/key.pem')
+
         ssl_context = None
-        if hasattr(config, 'get_ssl_context'):
-            ssl_context = config.get_ssl_context()
-        else:
-            cert_path = config.get('SSL_CERT_PATH', 'certs/cert.pem')
-            key_path = config.get('SSL_KEY_PATH', 'certs/key.pem')
-            
-            if os.path.exists(cert_path) and os.path.exists(key_path):
-                ssl_context = (cert_path, key_path)
+        if os.path.exists(cert_path) and os.path.exists(key_path):
+            ssl_context = (cert_path, key_path)
         
         # Run application
         if ssl_context:
