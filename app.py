@@ -41,27 +41,42 @@ def main():
                 logger.error(f"Failed to load JWKS: {e}")
                 return {'error': 'JWKS unavailable'}, 500
         
-        # Get configuration from Flask's config (already loaded in create_app)
+        # Get configuration from Flask's config
         config = app.config
 
-        # CLOUD RUN READY: Port and host configuration
-        port = int(os.environ.get('PORT', config.get('PORT', 8080)))
-        host = '0.0.0.0' if os.environ.get('PORT') else config.get('HOST', 'localhost')
-        debug = config.get('FLASK_ENV') == 'development' and config.get('FLASK_DEBUG', False)
+        # Detect if running on Cloud Run vs local development
+        is_cloud_run = bool(
+            os.environ.get('K_SERVICE') or 
+            os.environ.get('GOOGLE_CLOUD_PROJECT') or
+            (os.environ.get('PORT') and os.environ.get('PORT') in ['8080', '80'])
+        )
         
-        # SSL handling: Cloud Run provides HTTPS termination, local dev may use SSL
-        ssl_context = None
-        if not os.environ.get('PORT'):  # Local development
+        # Configure host and port based on environment
+        if is_cloud_run:
+            port = int(os.environ.get('PORT', 8080))
+            host = '0.0.0.0'
+            debug = False
+            ssl_context = None
+            logger.info(f"Starting on Cloud Run: {host}:{port}")
+        else:
+            # Local development
+            port = int(os.environ.get('PORT', config.get('PORT', 443)))
+            configured_host = config.get('HOST', 'localhost')
+            host = configured_host if configured_host != '0.0.0.0' else 'localhost'
+            debug = config.get('FLASK_ENV') == 'development' and config.get('FLASK_DEBUG', False)
+            
+            # Setup SSL for local development
+            ssl_context = None
             cert_path = config.get('SSL_CERT_PATH', 'certs/cert.pem')
             key_path = config.get('SSL_KEY_PATH', 'certs/key.pem')
             
             if os.path.exists(cert_path) and os.path.exists(key_path):
                 ssl_context = (cert_path, key_path)
-                logger.info(f"Starting with SSL on {host}:{port}")
+                logger.info(f"Starting with SSL on https://{host}:{port}")
             else:
                 logger.warning("SSL certificates not found - running without SSL")
-        else:
-            logger.info(f"Starting on Cloud Run: {host}:{port} (HTTPS handled by Cloud Run)")
+                if port == 443:
+                    port = 8080
         
         # Run application
         app.run(
