@@ -15,6 +15,7 @@ from pathlib import Path
 import base64
 import jwt
 from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 import requests
 
 from app.core.exceptions import (
@@ -25,32 +26,51 @@ from app.core.logging import get_logger, log_security_event
 
 logger = get_logger(__name__)
 
-
 def load_private_key(private_key_path: str = 'keys/private.pem'):
-    """Load private key from file for JWT signing."""
+    """
+    Load private key from GCP Secret Manager or generate in-memory for Cloud Run.
+    
+    Modified for Cloud Run deployment.
+    """
     try:
+        # Option 1: Try to load from GCP Secret Manager
+        if os.environ.get('JWT_PRIVATE_KEY_SECRET'):
+            from app.core.secrets import get_secret_manager
+            secret_manager = get_secret_manager()
+            private_key_pem = secret_manager.get_secret(os.environ['JWT_PRIVATE_KEY_SECRET'])
+            private_key = serialization.load_pem_private_key(
+                private_key_pem.encode('utf-8'), 
+                password=None
+            )
+            logger.debug("Private key loaded from GCP Secret Manager")
+            return private_key
+        
+        # Option 2: Try to load from local file (development)
         key_path = Path(private_key_path)
+        if key_path.exists():
+            with open(key_path, 'rb') as f:
+                private_key = serialization.load_pem_private_key(f.read(), password=None)
+            logger.debug(f"Private key loaded from {key_path}")
+            return private_key
         
-        if not key_path.exists():
-            raise TokenError(f"Private key file not found: {key_path}")
-        
-        with open(key_path, 'rb') as f:
-            private_key = serialization.load_pem_private_key(f.read(), password=None)
-        
-        logger.debug(f"Private key loaded from {key_path}")
+        # Option 3: Generate ephemeral key for Cloud Run (not recommended for production)
+        logger.warning("Generating ephemeral RSA key - tokens will be invalid after restart")
+        private_key = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=2048
+        )
+        logger.debug("Ephemeral private key generated")
         return private_key
         
     except Exception as e:
-        error_msg = f"Failed to load private key: {str(e)}"
+        error_msg = f"Failed to load or generate private key: {str(e)}"
         logger.error(error_msg)
         raise TokenError(error_msg, original_error=e)
 
 
 def create_client_assertion(client_id: str, token_endpoint: str) -> str:
     """
-    Create JWT client assertion for Epic OAuth2 authentication.
-    
-    Required for Epic's client_credentials authentication flow.
+    Create JWT client assertion - modified for Cloud Run.
     """
     try:
         now = datetime.now(timezone.utc)
@@ -65,9 +85,15 @@ def create_client_assertion(client_id: str, token_endpoint: str) -> str:
             'nbf': now
         }
         
-        # Load private key as bytes for PyJWT
-        with open('keys/private.pem', 'rb') as f:
-            private_key_bytes = f.read()
+        # Get private key (works with GCP Secret Manager or ephemeral)
+        private_key = load_private_key()
+        
+        # Convert to PEM bytes for PyJWT
+        private_key_bytes = private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,
+            encryption_algorithm=serialization.NoEncryption()
+        )
         
         assertion = jwt.encode(
             claims,
@@ -87,25 +113,25 @@ def create_client_assertion(client_id: str, token_endpoint: str) -> str:
 
 def load_jwks() -> Dict[str, Any]:
     """
-    Generate JWKS from private key for Epic public key verification.
-    
-    Used by Epic to verify our client assertions at /.well-known/jwks.json
+    Generate JWKS from private key - simple approach for Epic integration.
     """
     try:
-        private_key = load_private_key()
+        # Generate a new key specifically for JWKS (ephemeral approach)
+        logger.info("Generating ephemeral key for JWKS")
+        temp_private_key = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=2048
+        )
         
-        # Convert private key to public JWK format
-        public_key = private_key.public_key()
+        public_key = temp_private_key.public_key()
         public_numbers = public_key.public_numbers()
         
-        n_bytes = public_numbers.n.to_bytes(
-            (public_numbers.n.bit_length() + 7) // 8, 
-            byteorder='big'
-        )
-        e_bytes = public_numbers.e.to_bytes(
-            (public_numbers.e.bit_length() + 7) // 8, 
-            byteorder='big'
-        )
+        n = public_numbers.n  
+        e = public_numbers.e
+        
+        # Convert to bytes
+        n_bytes = n.to_bytes((n.bit_length() + 7) // 8, byteorder='big')
+        e_bytes = e.to_bytes((e.bit_length() + 7) // 8, byteorder='big')
         
         jwk = {
             'kty': 'RSA',
@@ -117,7 +143,7 @@ def load_jwks() -> Dict[str, Any]:
         }
         
         jwks = {'keys': [jwk]}
-        logger.info("JWKS generated for Epic integration")
+        logger.info("JWKS generated successfully")
         return jwks
         
     except Exception as e:

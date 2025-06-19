@@ -166,10 +166,13 @@ def launch():
             
             session['requested_scopes'] = scopes
             
-            # Initialize OAuth2 session
+            # Get callback URL from config instead of hardcoding
+            callback_url = current_app.config.get('CALLBACK_URL', url_for('auth.callback', _external=True))
+            
+            # Initialize OAuth2 session with configurable callback
             oauth2_session = OAuth2Session(
                 epic_client_id,
-                redirect_uri=url_for('auth.callback', _external=True),
+                redirect_uri=callback_url,  # Now configurable
                 scope=' '.join(scopes),
                 state=oauth_state
             )

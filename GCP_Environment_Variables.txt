@@ -1,0 +1,59 @@
+# =====================================================
+# GCP Cloud Run Environment Variables
+# Epic HL7 Integration - Production Deployment
+# =====================================================
+#
+# INSTRUCTIONS:
+# 1. Go to GCP Console → Cloud Run → Your Service
+# 2. Click "Edit & Deploy New Revision"
+# 3. Go to "Variables & Secrets" tab
+# 4. Add these environment variables:
+#
+# =====================================================
+
+# Flask Configuration
+FLASK_ENV=production
+FLASK_DEBUG=False
+
+# IMPORTANT: Generate a secure 32+ character secret for production
+SECRET_KEY=your-super-secure-32-character-production-secret-key-here
+
+# Epic FHIR Configuration
+EPIC_BASE_URL=https://vendorservices.epic.com/interconnect-amcurprd-oauth/api/FHIR/R4
+EPIC_CLIENT_ID_SECRET=non_prod_client_id_hyperdrive
+
+# GCP Configuration
+GCP_PROJECT_ID=your-actual-gcp-project-id
+
+# URLs - UPDATE THESE after deployment
+# Step 1: Deploy first to get your Cloud Run URL
+# Step 2: Update these with your actual Cloud Run URL
+# Step 3: Update Epic configuration with these URLs
+BASE_URL=https://your-app-name-hash.run.app
+CALLBACK_URL=https://your-app-name-hash.run.app/callback
+
+# Optional: JWT Private Key (if using GCP Secret Manager)
+# JWT_PRIVATE_KEY_SECRET=jwt-private-key
+
+# Application Settings
+REFERENCE_DIR=reference_files
+
+# =====================================================
+# DEPLOYMENT STEPS:
+# =====================================================
+# 1. Set these variables in GCP Console
+# 2. Deploy from GitHub
+# 3. Get your Cloud Run URL from deployment
+# 4. Update BASE_URL and CALLBACK_URL with actual URL
+# 5. Update Epic configuration with new callback URL
+# 6. Test the deployment
+#
+# =====================================================
+# SECURITY NOTES:
+# =====================================================
+# - Generate a NEW SECRET_KEY for production
+# - Store sensitive values in GCP Secret Manager
+# - Never commit production secrets to GitHub
+# - Use your actual GCP project ID
+#
+# =====================================================

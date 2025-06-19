@@ -29,6 +29,19 @@ class Config:
         self._set_security_defaults()
         self._validate_required()
         self._validate_security()
+
+        # NEW: Flexible callback and JWKS URL configuration
+        self.BASE_URL = os.getenv('BASE_URL', 'https://localhost')
+        self.CALLBACK_PATH = os.getenv('CALLBACK_PATH', '/callback')
+        self.JWKS_PATH = os.getenv('JWKS_PATH', '/.well-known/jwks.json')
+        
+        # Computed URLs (can be overridden)
+        self.CALLBACK_URL = os.getenv('CALLBACK_URL', f"{self.BASE_URL}{self.CALLBACK_PATH}")
+        self.JWKS_URL = os.getenv('JWKS_URL', f"{self.BASE_URL}{self.JWKS_PATH}")
+        
+        # Optional: Support for external JWKS hosting
+        self.EXTERNAL_JWKS_URL = os.getenv('EXTERNAL_JWKS_URL')
+        self.USE_EXTERNAL_JWKS = bool(self.EXTERNAL_JWKS_URL)
     
     def _load_environment(self):
         """Load configuration from environment variables."""

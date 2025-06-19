@@ -1,17 +1,30 @@
-# Python image to use.
-FROM python:3.13
+# Use Python 3.13 to match your current setup
+FROM python:3.13-slim
 
-# Set the working directory to /app
+# Set working directory
 WORKDIR /app
 
-# copy the requirements file used for dependencies
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install Python dependencies
 COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Install any needed packages specified in requirements.txt
-RUN pip install --trusted-host pypi.python.org -r requirements.txt
-
-# Copy the rest of the working directory contents into the container at /app
+# Copy application code
 COPY . .
 
-# Run app.py when the container launches
-ENTRYPOINT ["python", "app.py"]
+# Create directories and set permissions
+RUN mkdir -p logs reference_files \
+    && useradd --create-home --shell /bin/bash app \
+    && chown -R app:app /app
+
+USER app
+
+# Expose port (Cloud Run sets PORT env var)
+EXPOSE 8080
+
+# Run the application
+CMD ["python", "app.py"]

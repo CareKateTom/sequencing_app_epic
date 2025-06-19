@@ -44,38 +44,32 @@ def main():
         # Get configuration from Flask's config (already loaded in create_app)
         config = app.config
 
-        # Determine SSL context - check if certificate files exist
-        cert_path = config.get('SSL_CERT_PATH', 'certs/cert.pem')
-        key_path = config.get('SSL_KEY_PATH', 'certs/key.pem')
-
+        # CLOUD RUN READY: Port and host configuration
+        port = int(os.environ.get('PORT', config.get('PORT', 8080)))
+        host = '0.0.0.0' if os.environ.get('PORT') else config.get('HOST', 'localhost')
+        debug = config.get('FLASK_ENV') == 'development' and config.get('FLASK_DEBUG', False)
+        
+        # SSL handling: Cloud Run provides HTTPS termination, local dev may use SSL
         ssl_context = None
-        if os.path.exists(cert_path) and os.path.exists(key_path):
-            ssl_context = (cert_path, key_path)
+        if not os.environ.get('PORT'):  # Local development
+            cert_path = config.get('SSL_CERT_PATH', 'certs/cert.pem')
+            key_path = config.get('SSL_KEY_PATH', 'certs/key.pem')
+            
+            if os.path.exists(cert_path) and os.path.exists(key_path):
+                ssl_context = (cert_path, key_path)
+                logger.info(f"Starting with SSL on {host}:{port}")
+            else:
+                logger.warning("SSL certificates not found - running without SSL")
+        else:
+            logger.info(f"Starting on Cloud Run: {host}:{port} (HTTPS handled by Cloud Run)")
         
         # Run application
-        if ssl_context:
-            logger.info(f"Starting Epic FHIR Integration with SSL on {config['HOST']}:{config['PORT']}")
-            logger.info("Epic callback URL: https://localhost/callback")
-            
-            app.run(
-                debug=config.get('FLASK_DEBUG', False),
-                host=config.get('HOST', 'localhost'),
-                port=config.get('PORT', 443),
-                ssl_context=ssl_context
-            )
-        else:
-            logger.warning("SSL certificates not found - Epic integration requires HTTPS")
-            logger.warning("Please generate SSL certificates or update certificate paths")
-            
-            # Run without SSL for basic testing (Epic won't work)
-            port = 8080 if config.get('PORT') == 443 else config.get('PORT', 8080)
-            logger.info(f"Starting without SSL on {config['HOST']}:{port}")
-            
-            app.run(
-                debug=config.get('FLASK_DEBUG', False),
-                host=config.get('HOST', 'localhost'),
-                port=port
-            )
+        app.run(
+            debug=debug,
+            host=host,
+            port=port,
+            ssl_context=ssl_context
+        )
             
     except Exception as e:
         logger.error(f"Failed to start application: {e}")
